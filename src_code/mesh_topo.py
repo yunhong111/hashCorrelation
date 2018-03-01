@@ -192,11 +192,11 @@ def next_hop_rand_mark(cur_hop, pre_hop, s, d, hash_str, size,
     nhop = table[cur_hop][d][0]
     
     n = len(table[cur_hop][d])
-    if n > 1:
+    if n > 0:
         ni = crc8(seeds[cur_hop], hash_str, polys[cur_hop])%n
         nhop = table[cur_hop][d][ni]
-        if cur_hop == test_hop:
-            select_dict[hash_str] = 1
+        #if cur_hop == test_hop:
+        select_dict[hash_str] = 1
     
     # Drop some packets from a particular link
     if black_hole == nhop and int(int(s[3:])/129) == drop_id:

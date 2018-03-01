@@ -11,11 +11,11 @@
   </component>
   <component name="FileEditorManager">
     <leaf>
-      <file leaf-file-name="mesh_topo.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="mesh_topo.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/mesh_topo.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-1727">
-              <caret line="569" column="4" lean-forward="false" selection-start-line="569" selection-start-column="4" selection-end-line="569" selection-end-column="4" />
+            <state relative-caret-position="331">
+              <caret line="198" column="8" lean-forward="false" selection-start-line="198" selection-start-column="8" selection-end-line="198" selection-end-column="8" />
               <folding>
                 <element signature="e#0#21#0" expanded="true" />
               </folding>
@@ -23,7 +23,7 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="run_simulation.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="run_simulation.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/run_simulation.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="253">
@@ -41,12 +41,13 @@
     <option name="CHANGED_PATHS">
       <list>
         <option value="$PROJECT_DIR$/run_simulation.py" />
+        <option value="$PROJECT_DIR$/mesh_topo.py" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="302" />
-    <option name="y" value="32" />
+    <option name="x" value="379" />
+    <option name="y" value="29" />
     <option name="width" value="1075" />
     <option name="height" value="796" />
   </component>
@@ -126,7 +127,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="302" y="32" width="1075" height="796" extended-state="0" />
+    <frame x="379" y="29" width="1075" height="796" extended-state="0" />
     <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.24857685" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -156,22 +157,22 @@
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/mesh_topo.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1727">
-          <caret line="569" column="4" lean-forward="false" selection-start-line="569" selection-start-column="4" selection-end-line="569" selection-end-column="4" />
-          <folding>
-            <element signature="e#0#21#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/run_simulation.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="253">
           <caret line="69" column="49" lean-forward="true" selection-start-line="69" selection-start-column="49" selection-end-line="69" selection-end-column="49" />
           <folding>
             <element signature="e#0#9#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/mesh_topo.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="331">
+          <caret line="198" column="8" lean-forward="false" selection-start-line="198" selection-start-column="8" selection-end-line="198" selection-end-column="8" />
+          <folding>
+            <element signature="e#0#21#0" expanded="true" />
           </folding>
         </state>
       </provider>
