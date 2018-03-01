@@ -1,0 +1,10 @@
+Spine to Spine
+a0: low ai: top
+
+Spine to aggr
+a0: aggr_top ai: spine
+
+Aggr to Aggr
+a0: low ai: top
+Aggr to tor
+a0: aggr_low ai: tor
