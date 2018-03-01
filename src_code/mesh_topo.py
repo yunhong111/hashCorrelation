@@ -168,8 +168,7 @@ def next_hop_rand_mark(cur_hop, pre_hop, s, d, hash_str, size,
         marker = hash_str0[14:]
         if marker == "1":
             append_path(hash_str, pre_hop, cur_hop, d, flow_paths, size=size)
-        return 
-    n = len(hash_str)
+        return
     
     # Header = 4+4+2+2+1 bytes
     hash_str0 = hash_str
@@ -192,11 +191,11 @@ def next_hop_rand_mark(cur_hop, pre_hop, s, d, hash_str, size,
     nhop = table[cur_hop][d][0]
     
     n = len(table[cur_hop][d])
-    if n > 0:
+    if n > 1:
         ni = crc8(seeds[cur_hop], hash_str, polys[cur_hop])%n
         nhop = table[cur_hop][d][ni]
         #if cur_hop == test_hop:
-        select_dict[hash_str] = 1
+    select_dict[hash_str] = 1
     
     # Drop some packets from a particular link
     if black_hole == nhop and int(int(s[3:])/129) == drop_id:
