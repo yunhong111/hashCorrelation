@@ -63,7 +63,7 @@ def run_single(topo_type, task_type, trace_type, iterations,
     # Tree
     if topo_type == "TREE":
         if task_type == 'CLASSIFICATION':
-            flow_nums = np.arange(50, 550, 50) #np.arange(200, 2100, 300)
+            flow_nums = np.arange(50, 100, 50) #np.arange(200, 2100, 300)
             epsilons = [0.01] # np.arange(0.01, 0.4, 0.04)
         if task_type == "RANKING":
             flow_nums = np.arange(100, 610, 50)
@@ -176,6 +176,6 @@ if __name__ == '__main__':
     x_var = x_vars[0]
     
     for task_type in task_types[1:2]:
-        for trace_type in trace_types[0:3]:
+        for trace_type in trace_types[0:1]:
             run_single(topo_type, task_type, trace_type, iterations, 
                 x_var=x_var)
