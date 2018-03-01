@@ -66,7 +66,7 @@ def run_single(topo_type, task_type, trace_type, iterations,
             flow_nums = np.arange(50, 100, 50) #np.arange(200, 2100, 300)
             epsilons = [0.01] # np.arange(0.01, 0.4, 0.04)
         if task_type == "RANKING":
-            flow_nums = np.arange(100, 610, 50)
+            flow_nums = np.arange(50, 100, 50) #np.arange(100, 610, 50)
             epsilons = np.arange(0.01, 0.4, 0.04)
         if task_type == "APPLICATION":
             flow_nums = [2100]
