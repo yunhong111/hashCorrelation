@@ -171,11 +171,11 @@ if __name__ == '__main__':
     task_types = ['CLASSIFICATION', 'RANKING', 'APPLICATION']
     trace_types = ['A', 'B', 'C', 'e1', 'e5', 'e10', 'e50', 'e100', 'ABC']
     topo_types = ['B4', 'TREE', 'JUPITER']
-    x_vars = ['FLOWNUM', 'PVALUE', 'BIAS', 'IMR']
+    x_vars = ['FLOWNUM', 'PVALUE', 'PVALUEBYTE', ''BIAS', 'IMR']
     
     iterations = 10
     topo_type = topo_types[2]
-    x_var = x_vars[1]
+    x_var = x_vars[2]
     
     for task_type in task_types[0:1]:
         for trace_type in trace_types[0:1]:

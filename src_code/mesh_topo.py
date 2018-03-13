@@ -566,13 +566,13 @@ def classification(cherns, chern_byte, d_min, p, s, sub_flows,
         pairs.append([r1, r2, cherns[s], d_min[s], p[s]])
     return true_class
 
-def classification_alg(true_byte_dict, epsilon=0.01):
+def classification_alg(true_byte_dict, epsilon=0.01, epsilon_pb=0.1):
     
     for key in true_byte_dict:
         if true_byte_dict[key][0] < epsilon:
             true_byte_dict[key][2] = 1
         if (true_byte_dict[key][0] >= epsilon
-            and true_byte_dict[key][1] < 0.1
+            and true_byte_dict[key][1] < epsilon_pb
         ):
             true_byte_dict[key][2] = 0
             
@@ -942,7 +942,7 @@ if __name__ == "__main__":
         'trues, ests, select_len, est_pairs', 
         len(trues), len(ests), select_len, est_pairs
     )
-    classification_alg(true_byte_dict, epsilon)
+    classification_alg(true_byte_dict, epsilon=0.01, epsilon_pb=epsilon)
     
     # Write to fsile
     file_name1, file_name2 = cf.init_files(trace_type=trace_type, 
