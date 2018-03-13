@@ -159,15 +159,16 @@ def next_hop(cur_hop, pre_hop, s, d, hash_str, size,
 def next_hop_rand_mark(cur_hop, pre_hop, s, d, hash_str, size,
             table, seeds, polys, flow_paths, 
             cflow_dict, app_link_dict, app_link_flow_dict, select_dict={},
-            drop_id=0, r_threshold=0.0, black_hole='sh41', test_hop=''
+            drop_id=0, r_threshold=0.0, black_hole='sh41', test_hop='', add_byte_dict = {}
         ):
 
     if cur_hop == d:
         hash_str0 = hash_str
-        hash_str = hash_str0[0:14]
-        marker = hash_str0[14:]
+        hash_str = hash_str0[0:13]
+        marker = hash_str0[13:]
         if marker == "1":
             append_path(hash_str, pre_hop, cur_hop, d, flow_paths, size=size)
+            #select_dict[hash_str] = 1
         return
     
     # Header = 4+4+2+2+1 bytes
@@ -184,30 +185,36 @@ def next_hop_rand_mark(cur_hop, pre_hop, s, d, hash_str, size,
             hash_str, pre_hop, cur_hop, size, 
             cflow_dict, app_link_dict, app_link_flow_dict, next_hops, d=s
         )
-
-    if marker == "1":
-        append_path(hash_str, pre_hop, cur_hop, d, flow_paths, size=size)
-        
+ 
     nhop = table[cur_hop][d][0]
     
     n = len(table[cur_hop][d])
     if n > 1:
         ni = crc8(seeds[cur_hop], hash_str, polys[cur_hop])%n
         nhop = table[cur_hop][d][ni]
-        #if cur_hop == test_hop:
-    select_dict[hash_str] = 1
+        
+        if cur_hop == test_hop:
+            select_dict[hash_str] = 1
+    
     
     # Drop some packets from a particular link
-    if black_hole == nhop and int(int(s[3:])/129) == drop_id:
+    """if black_hole == nhop and int(int(s[3:])/129) == drop_id:
         r = random.random()
         if r < r_threshold:
-            return
+            return"""
+    # Randomly choosen a flow and add extra byte to it
+    if n > 1 and cur_hop == test_hop and nhop == table[cur_hop][d][0] and len(add_byte_dict) < 3:
+        add_byte_dict[hash_str] = 1000*size
+        size = 2*1024**2
+    
+    if marker == "1":
+        append_path(hash_str, pre_hop, cur_hop, d, flow_paths, size=size)
             
     next_hop_rand_mark(
         nhop, cur_hop, s, d, hash_str0, size, table, seeds, polys, 
         flow_paths, cflow_dict, app_link_dict, app_link_flow_dict, select_dict,
         drop_id=drop_id, r_threshold=r_threshold, black_hole=black_hole,
-        test_hop=test_hop
+        test_hop=test_hop, add_byte_dict=add_byte_dict
     )
 
 # Using hash set to get the paths of the flows
@@ -218,8 +225,8 @@ def next_hop_hash_set(cur_hop, pre_hop, s, d, hash_str,
     select_range = 1 << 28        
     if cur_hop == d:
         hash_str0 = hash_str
-        hash_str = hash_str0[0:14]
-        marker = hash_str0[14:]
+        hash_str = hash_str0[0:13]
+        marker = hash_str0[13:]
         hash_mid = crc32(hash_str)
         if hash_mid < select_range:
             append_path(hash_str, pre_hop, cur_hop, d, flow_paths)
@@ -392,7 +399,8 @@ def hashStr(data):
     
 def send_packet(hash_str, size, s, d, count_dict, count_dict1, mark_dict, 
         threshold, mark_group, seeds, polys, 
-        flow_paths, cflow_dict, app_link_dict, app_link_flow_dict, switch_nodes, table, select_dict, drop_id=0, r_threshold=0.0, black_hole='sh41', test_hop=''):
+        flow_paths, cflow_dict, app_link_dict, app_link_flow_dict, switch_nodes, table, select_dict, drop_id=0, r_threshold=0.0, black_hole='sh41', test_hop='',
+        add_byte_dict={}):
                 
     """switch_id = mf.marknum(
             hash_str, count_dict, count_dict1, threshold, 
@@ -409,7 +417,7 @@ def send_packet(hash_str, size, s, d, count_dict, count_dict1, mark_dict,
         s, 'h1', s, d, hash_str, size, table, seeds, polys, 
         flow_paths, cflow_dict, app_link_dict, app_link_flow_dict, select_dict,
         drop_id=drop_id, r_threshold=r_threshold, black_hole=black_hole, 
-        test_hop=test_hop
+        test_hop=test_hop, add_byte_dict=add_byte_dict
     )
     
 def flow_routing(file_name, seeds, polys, flow_paths,
@@ -435,6 +443,7 @@ def flow_routing(file_name, seeds, polys, flow_paths,
     app_link_dict = {}
     app_link_flow_dict = {}
     perlink_df = pd.DataFrame()
+    add_byte_dict={}
     
     with open((file_name), 'r') as f:
         for line in f:
@@ -488,6 +497,7 @@ def flow_routing(file_name, seeds, polys, flow_paths,
                             data[2], data[3], 
                             switch_nodes
                     ) 
+                #d = 'e1'
                 hash_str = hashStr(data)  
                 flow_dict[hash_str] = 1
                 data_size = float(data[1])
@@ -501,7 +511,7 @@ def flow_routing(file_name, seeds, polys, flow_paths,
                         mark_dict, threshold, mark_group, seeds, polys, 
                         flow_paths, cflow_dict, app_link_dict, app_link_flow_dict, switch_nodes, table, 
                         select_dict, drop_id=drop_id, r_threshold=r_threshold,
-                        black_hole=black_hole, test_hop=test_hop
+                        black_hole=black_hole, test_hop=test_hop, add_byte_dict=add_byte_dict
                     )
                     data_size -= per_size
                 
@@ -556,13 +566,13 @@ def classification(cherns, chern_byte, d_min, p, s, sub_flows,
         pairs.append([r1, r2, cherns[s], d_min[s], p[s]])
     return true_class
 
-def classification_alg(true_byte_dict, epsilon=0.001):
+def classification_alg(true_byte_dict, epsilon=0.01):
     
     for key in true_byte_dict:
         if true_byte_dict[key][0] < epsilon:
             true_byte_dict[key][2] = 1
         if (true_byte_dict[key][0] >= epsilon
-            and true_byte_dict[key][1] < epsilon
+            and true_byte_dict[key][1] < 0.1
         ):
             true_byte_dict[key][2] = 0
             
@@ -579,21 +589,6 @@ def single(r1, r2, pairs, est_pairs, switch_nodes,
     if is_correlated:
         poly = set_correlation(r1, r2, polys)
         true_class = 1
-        
-    flow_paths = {}
-    select_len = flow_routing(
-        file_name, seeds, polys, flow_paths, switch_nodes, table, flow_cap,
-        topo_type, 
-        key=key, class_dict=class_dict, imr_threshold=imr_threshold,
-        task_type=task_type, 
-        drop_id=drop_id, r_threshold=r_threshold, black_hole=black_hole,
-        links=links, test_hop=r1
-    )
-    flow_paths = ([(flow_paths[key], key[1], flow_paths[key].values()[0]) 
-                    for key in flow_paths]
-    )
-    
-    print '**** Len(flow_paths)', len(flow_paths)
     
     # Get the paths with at least two packets
     """
@@ -609,8 +604,24 @@ def single(r1, r2, pairs, est_pairs, switch_nodes,
     p = {}
     
     if task_type != 'APPLICATION':
-        for s in test_nodes[0:1]:
+        for s in test_nodes:
             print '    **** testing node', s
+            flow_paths = {}
+            select_len = flow_routing(
+                file_name, seeds, polys, flow_paths, switch_nodes, table, flow_cap,
+                topo_type, 
+                key=key, class_dict=class_dict, imr_threshold=imr_threshold,
+                task_type=task_type, 
+                drop_id=drop_id, r_threshold=r_threshold, black_hole=black_hole,
+                links=links, test_hop=s
+            )
+            #print [flow_paths[key].values() for key in flow_paths.keys()[0:1]]
+            flow_paths = ([(flow_paths[key], key[1], flow_paths[key].values()[-1]) 
+                            for key in flow_paths]
+            )
+            print '**** Len(flow_paths)', len(flow_paths)
+            #print flow_paths[0]
+            
             sub_flows = subFlows(flow_paths, s)
             if task_type == "CLASSIFICATION":
                 byte_true_class = classification(cherns, chern_byte, d_min, p, s, sub_flows,
@@ -731,12 +742,13 @@ def smallClosNetwork():
     # Get the routing path of all nodes
     table_file_name = '../outputs/tree_routing_table.txt'
     if((os.path.isfile(table_file_name)) == False):
-        table = all_routing(G, tors, table_file_name)
+        table = all_routing(G, tors+['e1'], table_file_name)
     else:
         json_data = open(table_file_name).read()
         table = json.loads(json_data)
     
     print('**** Got routing table!')
+
     seeds, polys = cf.get_seeds_table_tree(switch_nodes) #
     
     return G, tors, edges, table, seeds, polys
@@ -805,7 +817,7 @@ if __name__ == "__main__":
     if len(sys.argv) >= 8:
         epsilon = float(sys.argv[7])
     else:
-        epsilon = 0.001
+        epsilon = 0.01
     
     # r_threshold
     if len(sys.argv) >= 9:
@@ -831,7 +843,7 @@ if __name__ == "__main__":
         G, tors, edges, table, seeds, polys = b4Wan()
     if topo_type == 'TREE':
         G, tors, edges, table, seeds, polys = smallClosNetwork()
-    
+
     if trace_type == 'A':
         file_name = ("/home/yunhong/Research_4/distributions/outputs/"
                     + 'split_flows_600s_clusterA_asort')
@@ -876,6 +888,7 @@ if __name__ == "__main__":
                         ('2_0_1_2', '2_1_1_2'), ('2_0_1_3', '2_1_1_3')])
         if task_type == 'APPLICATION':
             test_pairs = [('2_0_0_0', '2_1_0_0')]
+        #test_pairs = [('2_0_0_0', '2_1_0_0'), ('2_0_0_0', '3_0_0_0')]
     """test_pairs = testPairs(
             G, anodes[0:80], prefix1='ah', prefix2='al', table=table
     )""" 
@@ -887,6 +900,7 @@ if __name__ == "__main__":
                 test_pairs.append(('al'+str(i), 'ah'+str(i)))
                 test_pairs.append(('al'+str(i), 'ah'+str(i+1)))
                 #test_pairs.append(('ah'+str(i), 'sl'+str(i)))
+        #test_pairs = [('al1', 'sl81')]
                 
         if task_type == 'APPLICATION':
             links = list(nx.all_shortest_paths(G, 'tor1', 'e1'))
@@ -900,6 +914,8 @@ if __name__ == "__main__":
     for (r1, r2) in test_pairs:
         if task_type == 'APPLICATION':
             black_hole = [x for x in G[r2] if 'sh' in x][0]
+        #elif task_type == 'CLASSIFICATION'
+            #black_hole = [x for x in G[r2] if 'sh' in x][0]
         else:
             black_hole = None
         links = sorted(
@@ -928,13 +944,10 @@ if __name__ == "__main__":
     )
     classification_alg(true_byte_dict, epsilon)
     
-    # Write to file
-    file_name1 = ('../outputs/zout_'
-            +topo_type.lower()+'_'+ task_type.lower() + '_' 
-            + x_var.lower() + '_trace'+trace_type+'.csv')
-    file_name2 = ('../outputs/zout_'
-            +topo_type.lower()+'_'+ task_type.lower() + '_' 
-            + x_var.lower() + '_chern_trace'+trace_type+'.csv')
+    # Write to fsile
+    file_name1, file_name2 = cf.init_files(trace_type=trace_type, 
+                task_type=task_type, topo_type=topo_type, 
+                x_var=x_var, p=0.01)
             
     f1 = open(file_name1, 'a')
     f2 = open(file_name2, 'a')
@@ -948,7 +961,7 @@ if __name__ == "__main__":
                     + str(true_byte_dict[key][0]) + ',' 
                     + str(true_byte_dict[key][1]) + ','
                     + str(true_byte_dict[key][2]) + ','
-                    + str(true_class_dict[key]) + '\n'
+                    + str(int(is_correlated)) + '\n' #true_class_dict[key]
             )
         
         f1.write(
@@ -969,6 +982,7 @@ if __name__ == "__main__":
                     + str(int(is_correlated)) + ','
                     + key + ','
                     + str(len(ests)) + ','
+                    + str([(x[2]) for x in ests[key]][0]) + ','
                     + ','.join([str(x[1]) for x in ests[key]]) + ','
                     + ','.join([str(x[0]) for x in ests[key]]) + '\n'
             )

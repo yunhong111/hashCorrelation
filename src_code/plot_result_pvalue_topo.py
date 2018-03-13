@@ -5,18 +5,16 @@ import matplotlib.pyplot as plt
 import plot_lib as pl
 from collections import OrderedDict
 from sklearn.metrics import accuracy_score
+import co_func as cf
 
 def init_files(trace_type = ' ', task_type='CLASSIFICATION', topo_type='b4', 
-                x_var = 'FLOWNUM'
+                x_var = 'FLOWNUM', p=0.01
     ):
-    infile_name1 = ('../outputs/zout_'
-            +topo_type.lower()+'_'+ task_type.lower() + '_' 
-            + x_var.lower() + '_trace'+trace_type+'.csv')
-    infile_name2 = ('../outputs/zout_'
-            +topo_type.lower()+'_'+ task_type.lower() + '_' 
-            + x_var.lower() + '_chern_trace'+trace_type+'.csv')
+    file_name1, file_name2 = cf.init_files(trace_type=trace_type, 
+                task_type=task_type, topo_type=topo_type, 
+                x_var=x_var, p=p)
             
-    return infile_name1, infile_name2        
+    return file_name1, file_name2    
         
 def read_csv(file_name, file_type=0, topo_type='CLASSIFICATION', is_epsilon=False):
     global ACAP
@@ -25,7 +23,7 @@ def read_csv(file_name, file_type=0, topo_type='CLASSIFICATION', is_epsilon=Fals
         names=(['#flows', 'epsilon', 'is_correlated', 
                 'key', 'count_chern', 'byte_chern', 'class']
         )
-        return pd.read_csv(file_name, skiprows=[0], names=names)
+        return pd.read_csv(file_name)
     else:
         print('here')
         names=['#flows', 'is_correlated', 'key'] + ['a' + str(i) for i in range(ACAP)]
@@ -41,7 +39,7 @@ def retieveData(infile_name1, group_fields, agg_fields,
     
     df1 = read_csv(infile_name1, file_type)
     df1 = df1.replace([2, '2.0', 2.0, '2'], 1)
-    df1['true'] = df1['is_correlated'].replace([0], -1)
+    #df1['true'] = df1['is_correlated'].replace([0], -1)
     df1['colFromIndex'] = df1.index
     df1 = df1.sort(columns=['epsilon', 'colFromIndex'])
 
@@ -56,14 +54,13 @@ def retieveData(infile_name1, group_fields, agg_fields,
             print df1.loc[s_index], df1.loc[e_index]
             eeee
         key = df1['epsilon'].loc[e_index]
-        y_pred = df1['class'].loc[s_index:e_index]
+        y_pred = df1['pred'].loc[s_index:e_index]
         y_true = df1['true'].loc[s_index:e_index]
         acc = accuracy_score(y_true, y_pred)
         if key not in acc_dict:
             acc_dict[key] = []
         acc_dict[key].append(acc)
-        print len(y_pred), df1['epsilon'].unique()
-    print acc_dict
+
     accuracy = []
     error = []
     for key in acc_dict:
@@ -81,8 +78,8 @@ def accuracyPlot(topo_types, task_types, trace_types, pair_seq=0):
     cherns, chern_errors, chern_x = [], [], None
     acc_boxplot_data = []
     
-    for trace_type in trace_types:
-        topo_type = topo_types[1]
+    for topo_type in topo_types[0:3]:
+        trace_type = trace_types[0]
         task_type = task_types[0]
         if topo_type == topo_types[0]:
             pair_num = 4
@@ -106,16 +103,16 @@ def accuracyPlot(topo_types, task_types, trace_types, pair_seq=0):
     
     acc_legend = ['Database', 'Web', 'Hadoop']
     xlabel, ylabel = 'The threshold for p-value', 'Average accuracy'
-    print accuracys, chern_x
+    print 'accuracys, chern_x', accuracys, chern_x
     pl.plot(accuracys, x=chern_x, k=2, errors=errors, 
-        xlabel=xlabel, ylabel=ylabel, title=infile_name1, 
-        xlog=False, ylog=False, acc_legend=acc_legend,
-        legend_y=0.85
+        xlabel=xlabel, ylabel=ylabel, title=infile_name1.split('/outputs')[1].split('.csv')[0].replace('.', '_'), 
+        xlog=True, ylog=False, acc_legend=acc_legend, legend_x=0.2,
+        legend_y=0.2
     )
     print acc_boxplot_data
     
     pl.box_plot([acc_boxplot_data[0]], x=chern_x, k=2, errors=errors, 
-        xlabel=xlabel, ylabel=ylabel, title=infile_name1, 
+        xlabel=xlabel, ylabel=ylabel, title=infile_name1.split('/outputs')[1].split('.csv')[0].replace('.', '_'), 
         xlog=False, ylog=False, acc_legend=acc_legend,
         legend_y=0.85, xticks=[str(i) for i in chern_x])
 

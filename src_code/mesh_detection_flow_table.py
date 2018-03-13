@@ -25,7 +25,7 @@ def common_flows_with_next(r2, r2_next_hops,
                         if (dst, edge[1]) not in x:
                             x[(dst, edge[1])] = 0
                         x[(dst, edge[1])] += 1
-    
+    #print 'next_counts', next_counts
     return next_counts.values(), next_bytes.values(), x
 
 def getIndex(qlist, value):
@@ -92,7 +92,7 @@ def dest_group_by_nhops(routing_table):
     return ds
     
 def hash_biased(r1, flow_paths, routing_table_r1, 
-                threshould=0.0001
+                threshould=0.01
         ):
     """
     routing_table is the table of r1
@@ -117,8 +117,10 @@ def hash_biased(r1, flow_paths, routing_table_r1,
                 if min_chern > chern_bound:
                     d_min = (key, ds[key], x)
                 min_chern = min(min_chern, chern_bound)
-                cut = max(1, int(1*min(map(len, next_bytes))))
+                cut = int(max(1, 1*int(1*min(map(len, next_bytes)))))
+
                 next_bytes_sorted = [(x[-cut:]) for x in map(sorted, next_bytes)]
+                next_bytes = next_bytes_sorted
                 sum_next_bytes = map(sum, next_bytes_sorted)
                 
                 chern_byte = min_bound(next_bytes, flow_indicator=0)
@@ -128,12 +130,16 @@ def hash_biased(r1, flow_paths, routing_table_r1,
                 t_byte, p_byte = t_test_byte(next_bytes, 0.5)
                 p_byte_min = min(p_byte_min, p_byte)
                 
-                if ((max(sum_next_bytes) - min(sum_next_bytes))/max(sum_next_bytes) > 0.8
-                        and min(next_counts) > 5):
+                # Use p value
+                min_chern_byte = p_byte_min
+                
+                #if ((max(sum_next_bytes) - min(sum_next_bytes))/sum(sum_next_bytes) > 0.3):
+                if max([y for x in next_bytes_sorted for y in x[-3:]])/sum(sum_next_bytes) > 0.1: 
+                        #and min(next_counts) > 5):
                 #if p_byte < 0.1:
                     true_class = 0
                 
-                print 'true_class', cut, (max(sum_next_bytes) - min(sum_next_bytes))/max(sum_next_bytes), true_class, sum_next_bytes, next_counts, p_byte, chern_byte
+                print 'true_class', cut, (max(sum_next_bytes) - min(sum_next_bytes))/max(sum_next_bytes), true_class, nhops, sum_next_bytes, next_counts, p_byte, chern_byte
                 
                 if p_min > p: # and max(next_counts) > 50:
                     p_min = p
@@ -155,6 +161,7 @@ def corr_detection(r1_pre, r1, flow_paths,
     min_chern = 2.0
     min_chern_byte = 2.0
     p_min = 2.0
+    o_f = 0.5
     if len(ds) != 0:
         for key in ds.keys():
             nhops = key.split('\t')
@@ -170,7 +177,9 @@ def corr_detection(r1_pre, r1, flow_paths,
             chern_bound = 0
             if sum(next_counts) > 10: # and max(next_counts) > 50:
                 chern_bound = min_bound(next_counts)
-                min_chern = min(min_chern, chern_bound)
+                if min_chern > chern_bound:
+                    o_f = min(next_counts)/sum(next_counts)
+                    min_chern = min(min_chern, chern_bound)
                 p_min = min(p_min, p)
                 
                 chern_byte = min_bound(next_bytes, flow_indicator=0)
@@ -181,7 +190,7 @@ def corr_detection(r1_pre, r1, flow_paths,
                 min_chern, p_min, min_chern_byte
     )"""
     
-    return min_chern, p_min
+    return min_chern, p_min, o_f
     
 def corr_group(r2, flow_paths, routing_table, threshould=0.01):
     """
@@ -194,13 +203,13 @@ def corr_group(r2, flow_paths, routing_table, threshould=0.01):
     r1s = pre_hop_group(r2, flow_paths, routing_table[r2])
     min_bounds = []
     for r1 in r1s:
-        min_bound, p = corr_detection(
+        min_bound, p, o_f = corr_detection(
                 r1, r2, flow_paths, routing_table[r1], routing_table[r2]
         )
         #if p != 0:
             #min_bound = min(min_bound, p)
         #if min_bound < threshould:
-        min_bounds.append((r1, min_bound))
+        min_bounds.append((r1, min_bound, o_f))
     
     min_bounds = sorted(min_bounds, key=lambda x: x[1])
     

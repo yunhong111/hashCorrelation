@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 
 def plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title', 
         xlog=False, ylog=False, acc_legend=[], xticks=[], 
-        figure_width=4.3307*1.25, legend_y=0.3
+        figure_width=4.3307*1.25, figure_height=3.346*1.25, legend_y=0.3, 
+        x_shift=0.02, y_shift=0.02, legend_x=0.6
     ):
             
-    fig = plt.figure(figsize=(figure_width, 3.346*1.25))
+    fig = plt.figure(figsize=(figure_width, figure_height))
     ax = plt.subplot(111)
     types = ['o-', '^-.', '*--', 'd-', 'p-', '>-', '<-', '8-',
             's-', 'p-', '1-', '2-', '3-', '4-', 'h-']
@@ -22,14 +23,14 @@ def plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title',
         ax.set_xscale('log')
     
     if k == 1:
-        if x == None:
+        if len(x) == 0:
             x_values = np.arange(len(data))
         plt.plot(x_values, data, 'o-', color='blue')
         if len(errors) != 0:
             plt.errorbar(x_values, data, errors, linestyle='None',color="r")
     else:
         for i in range(len(data)):
-            if x == None:
+            if len(x) == 0:
                 x_values = np.arange(len(data[i]))
             else:
                 x_values = x
@@ -38,7 +39,7 @@ def plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title',
             if len(errors) != 0:
                 plt.errorbar(
                     x_values, 
-                    data[i], errors[i], 
+                    data[i], yerr=errors[i], 
                     linestyle='None',
                     color=colors[i%16],
                     linewidth=1.5,
@@ -54,17 +55,18 @@ def plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title',
     plt.grid(True)
     box = ax.get_position()
     ax.set_position(
-        [box.x0+0.04, box.y0+0.15, box.width * 0.8, box.height*0.8])
+        [box.x0+x_shift, box.y0+y_shift, box.width*1, box.height*1])
     #plt.xticks(flow_num)
     
     # Put a legend to the right of the current axis
     if len(acc_legend) != 0:
         ax.legend(
             acc_legend, loc='center left', 
-            bbox_to_anchor=(0.6, legend_y), 
+            bbox_to_anchor=(legend_x, legend_y), 
             numpoints=1
     )
     #plt.setp(ax.get_xticklabels(), rotation=30, horizontalalignment='right')
+    print '../figures/' + title + '.png'
     fig.savefig('../figures/' + title + '.png', dpi = 300)
     
 def box_plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title', 
@@ -85,12 +87,18 @@ def box_plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title'
         ax.set_yscale('log')
     if xlog:
         ax.set_xscale('log')
-        
+    
+    bplots = []
     for i in range(len(data)):
         x_values = np.arange(len(data[i]))
-        plt.boxplot(
-            data[i])
-    
+        bplot1 = plt.boxplot(
+            data[i], widths=0.3, patch_artist=True)
+        bplots.append(bplot1)
+    colors = ['pink', 'lightblue', 'lightgreen']
+    for bplot in bplots:
+        for patch in bplot['boxes']:
+            patch.set_facecolor(colors[0])
+            
     plt.ylabel(ylabel)
     plt.xlabel(xlabel)
 

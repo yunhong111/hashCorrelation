@@ -39,7 +39,7 @@ def append_path(hash_str, pre_hop, cur_hop, d, paths, size=1):
         paths[(hash_str, d)] = OrderedDict({})
     if (pre_hop, cur_hop) not in paths[(hash_str, d)]:
         paths[(hash_str, d)][(pre_hop, cur_hop)] = 0
-    paths[(hash_str, d)][(pre_hop, cur_hop)] += size
+    paths[(hash_str, d)][(pre_hop, cur_hop)] += size #int(max(1, size/500))
     
 def min_bound(next_counts, flow_indicator=1):
     
@@ -79,7 +79,7 @@ def min_bound(next_counts, flow_indicator=1):
             if chern_bound < min_bound:
                 min_bound = chern_bound
                 min_pos = i
-    #print('        %%min_bound', min_bound)
+    # print('        %%min_bound', min_bound)
     return min_bound
 
 class singleNode(object):
@@ -213,4 +213,16 @@ def get_seeds_table_jupiter(router_nodes):
             i += 1
     
     return seeds, polys
+
+def init_files(trace_type = ' ', task_type='CLASSIFICATION', topo_type='b4', 
+                x_var = 'FLOWNUM', p=0.01
+    ):
+    file_name1 = ('../outputs/zout_'
+            +topo_type.lower()+'_'+ task_type.lower() + '_' 
+            + x_var.lower() + '_trace'+trace_type+'_p'+str(p)+'.csv')
+    file_name2 = ('../outputs/zout_'
+            +topo_type.lower()+'_'+ task_type.lower() + '_' 
+            + x_var.lower() + '_chern_trace'+trace_type+'_p'+str(p)+'.csv')
+            
+    return file_name1, file_name2   
     

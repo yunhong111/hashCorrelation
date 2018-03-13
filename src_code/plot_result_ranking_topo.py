@@ -6,14 +6,16 @@ import plot_lib as pl
 from collections import OrderedDict
 import plotly.plotly as py
 import plotly.graph_objs as go
-import co_func as cf
 
 def init_files(trace_type = ' ', task_type='CLASSIFICATION', topo_type='b4', 
-                x_var = 'FLOWNUM', p=0.01
+                x_var = 'FLOWNUM'
     ):
-    file_name1, file_name2 = cf.init_files(trace_type=trace_type, 
-                task_type=task_type, topo_type=topo_type, 
-                x_var=x_var, p=p)
+    file_name1 = ('../outputs/zout_'
+            +topo_type.lower()+'_'+ task_type.lower() + '_' 
+            + x_var.lower() + '_trace'+trace_type+'.csv')
+    file_name2 = ('../outputs/zout_'
+            +topo_type.lower()+'_'+ task_type.lower() + '_' 
+            + x_var.lower() + '_chern_trace'+trace_type+'.csv')
             
     return file_name1, file_name2    
         
@@ -61,7 +63,7 @@ def retieveData(infile_name1, group_fields, agg_fields,
             .agg(agg_dict)
     )
         
-    data = df1[agg_fields[0]]['median'].divide(case_num)
+    data = df1[agg_fields[0]]['mean'].divide(case_num)
     error = df1[agg_fields[1]]['std'].divide(case_num)
     quantile_25 = df1[agg_fields[1]]['q1'].divide(case_num)
     quantile_75 = df1[agg_fields[1]]['q2'].divide(case_num)
@@ -141,7 +143,7 @@ def accuracyPlot(topo_types, task_types, trace_types, pair_seq=0):
     cherns, chern_errors, chern_x = [], [], None
     
     for trace_type in trace_types:
-        topo_type = topo_types[1]
+        topo_type = topo_types[0]
         task_type = task_types[1]
         
         infile_name1, infile_name2 = init_files(
@@ -165,9 +167,9 @@ def accuracyPlot(topo_types, task_types, trace_types, pair_seq=0):
     acc_legend = ['Database', 'Web', 'Hadoop', 'e1', 'e5', 'e10', 'e50', 'e100']
     xlabel, ylabel = 'The number of flows', 'Average accuracy'
 
-    pl.plot(accuracys, x=x, k=1, errors=errors, 
+    pl.plot(accuracys, x=x, k=2, errors=errors, 
         xlabel=xlabel, ylabel=ylabel, title=infile_name1.split('.')[0], 
-        xlog=False, ylog=False, acc_legend=acc_legend[3:8]
+        xlog=False, ylog=False, acc_legend=acc_legend[0:3]
     )
     
     """xlabel, ylabel = 'The number of flows', 'Average p-value'
@@ -194,8 +196,8 @@ def rankingPlot(topo_types, task_types, trace_types, pair_seq=0):
     accuracys, errors, x, q_75s, q_25s = [], [], None, [], []
     cherns, chern_errors, chern_x = [], [], None
     
-    for trace_type in trace_types:
-        topo_type = topo_types[1]
+    for topo_type in topo_types:
+        trace_type = trace_types[0]
         task_type = task_types[1]
         cut = 5
         if topo_type == topo_types[2]:
@@ -217,15 +219,16 @@ def rankingPlot(topo_types, task_types, trace_types, pair_seq=0):
         agg_fields = ['a'+str(i) for i in range(ACAP)]
         #print(agg_fields)
         chern_x = rankingPair(
-            infile_name2, cherns, 0, pair_seq, 
+            infile_name2, cherns, 2, pair_seq, 
             file_type=1, topo_type=topo_type, cut=cut
         )
     
-    acc_legend = ['Database', 'Web', 'Hadoop', 'e1', 'e5', 'e10', 'e50', 'e100']
+    acc_legend = ['B4', 'Fat-tree', 'Jupiter', 'e1', 'e5', 'e10', 'e50', 'e100']
     xlabel, ylabel = 'The number of flows', 'Average accuracy'
     pl.plot(accuracys, x=x, k=2, errors=q_75s, 
-        xlabel=xlabel, ylabel=ylabel, title=infile_name1.split('.')[0], 
-        xlog=False, ylog=False, acc_legend=acc_legend[3:8]
+        xlabel=xlabel, ylabel=ylabel, 
+        title=infile_name1.split('/outputs')[1].split('.csv')[0], 
+        xlog=False, ylog=False, acc_legend=acc_legend[:3]
     )
     
     
@@ -236,7 +239,7 @@ def rankingPlot(topo_types, task_types, trace_types, pair_seq=0):
         xticks = chern_x
     pl.plot(cherns, x=None, k=len(cherns), errors=[], 
         xlabel=xlabel, ylabel=ylabel, 
-        title=infile_name1.split('.')[0]+'pair-key'+str(pair_seq), 
+        title=infile_name1.split('/outputs')[1].split('.csv')[0]+'pair-key'+str(pair_seq), 
         xlog=False, ylog=True, acc_legend=acc_legend, xticks=chern_x,
         figure_width=4.3307*1.25
     )
@@ -247,9 +250,9 @@ if __name__ == "__main__":
     topo_types = ['B4', 'TREE', 'JUPITER']
     task_types = ['CLASSIFICATION', 'RANKING', 'APPLICATION']
     trace_types = ['A', 'B', 'C', 'e1', 'e5', 'e10', 'e50', 'e100']
-    pair_seq = 0
-    print trace_types[3:8]
+    pair_seq = 2
+    print trace_types[:3]
     #accuracyPlot(topo_types, task_types, trace_types[:3], pair_seq=pair_seq)
-    rankingPlot(topo_types, task_types, trace_types[3:8], pair_seq=pair_seq)
+    rankingPlot(topo_types, task_types, trace_types[:3], pair_seq=pair_seq)
     
     plt.show()
