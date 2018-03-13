@@ -932,7 +932,7 @@ if __name__ == "__main__":
                 topo_type,
                 task_type=task_type,
                 key=key, class_dict=class_dict, imr_threshold=imr_threshold,
-                epsilon=epsilon,
+                epsilon=0.01,
                 drop_id=drop_id, r_threshold=r_threshold,
                 black_hole=black_hole,
                 links=links
