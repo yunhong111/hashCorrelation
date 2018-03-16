@@ -91,11 +91,11 @@ def run_single(topo_type, task_type, trace_type, iterations,
         imr_thresholds = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
     drop_ids = [0]
     
-    if x_var == 'FLOWNUM' or x_var == 'PVALUE':
+    if x_var == 'FLOWNUM' or x_var == 'PVALUE'or x_var == 'PVALUEBYTE':
         r_thresholds = [0.3]
         imr_thresholds = [0.1]
     
-    if x_var == 'PVALUE':
+    if x_var == 'PVALUE' or x_var == 'PVALUEBYTE':
         flow_nums = [300] #flow_nums[len(flow_nums)-1:]
         if topo_type == "JUPITER":
             flow_nums = [1200]
@@ -106,7 +106,7 @@ def run_single(topo_type, task_type, trace_type, iterations,
     print '@epsilons', epsilons
     print '@r_thresholds', r_thresholds
     print '@imr_thresholds', imr_thresholds
-    
+
     init_files(trace_type, task_type, topo_type, x_var=x_var, p=0.01)
     for iter in range(iterations):
         for flow_num in flow_nums:
@@ -114,6 +114,7 @@ def run_single(topo_type, task_type, trace_type, iterations,
                 for r_threshold in r_thresholds:
                     for imr_threshold in imr_thresholds:
                         is_correlated, drop_id = 1, 0
+                        r_threshold = 0.1
                         print '\n@CORRELATED ', '@epsilon', epsilon
                         command = ('python mesh_topo.py ' 
                                             + topo_type + ' ' 
@@ -132,6 +133,26 @@ def run_single(topo_type, task_type, trace_type, iterations,
                         if task_type == "CLASSIFICATION":
                             print '\n@NOT CORRELATED', '@epsilon', epsilon
                             is_correlated, drop_id = 0, 0
+                            r_threshold = 0.1
+                            command = ('python mesh_topo.py ' 
+                                        + topo_type + ' ' 
+                                        + str(flow_num) + ' '
+                                        + str(is_correlated) + ' '
+                                        + trace_type + ' '
+                                        + task_type + ' '
+                                        + x_var + ' '
+                                        + str(epsilon) + ' '
+                                        + str(r_threshold) + ' '
+                                        + str(drop_id) + ' '
+                                        + str(imr_threshold)
+                                        
+                            )
+                            os.system(command)
+                        
+                        if task_type == "CLASSIFICATION":
+                            print '\n@NOT CORRELATED', '@epsilon', epsilon
+                            is_correlated, drop_id = 0, 0
+                            r_threshold = 0
                             command = ('python mesh_topo.py ' 
                                         + topo_type + ' ' 
                                         + str(flow_num) + ' '
@@ -171,7 +192,7 @@ if __name__ == '__main__':
     task_types = ['CLASSIFICATION', 'RANKING', 'APPLICATION']
     trace_types = ['A', 'B', 'C', 'e1', 'e5', 'e10', 'e50', 'e100', 'ABC']
     topo_types = ['B4', 'TREE', 'JUPITER']
-    x_vars = ['FLOWNUM', 'PVALUE', 'PVALUEBYTE', ''BIAS', 'IMR']
+    x_vars = ['FLOWNUM', 'PVALUE', 'PVALUEBYTE', 'BIAS', 'IMR']
     
     iterations = 10
     topo_type = topo_types[2]

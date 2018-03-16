@@ -203,9 +203,10 @@ def next_hop_rand_mark(cur_hop, pre_hop, s, d, hash_str, size,
         if r < r_threshold:
             return"""
     # Randomly choosen a flow and add extra byte to it
-    if n > 1 and cur_hop == test_hop and nhop == table[cur_hop][d][0] and len(add_byte_dict) < 3:
+    if r_threshold > 0 and n > 1 and cur_hop == test_hop and nhop == table[cur_hop][d][0] and len(add_byte_dict) < 3:
         add_byte_dict[hash_str] = 1000*size
-        size = 2*1024**2
+        size = 2.0*1024**2
+        print 'haha'
     
     if marker == "1":
         append_path(hash_str, pre_hop, cur_hop, d, flow_paths, size=size)
@@ -953,6 +954,10 @@ if __name__ == "__main__":
     f2 = open(file_name2, 'a')
     if task_type == "CLASSIFICATION":
         for key in true_byte_dict:
+            true_class = is_correlated
+            if r_threshold <= 0:
+                true_class  = -1
+                is_correlated = -1
             f2.write(
                     str(select_len) + ','
                     + str(epsilon) + ','
@@ -961,7 +966,7 @@ if __name__ == "__main__":
                     + str(true_byte_dict[key][0]) + ',' 
                     + str(true_byte_dict[key][1]) + ','
                     + str(true_byte_dict[key][2]) + ','
-                    + str(int(is_correlated)) + '\n' #true_class_dict[key]
+                    + str(int(true_class)) + '\n' #true_class_dict[key]
             )
         
         f1.write(
