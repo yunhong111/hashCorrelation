@@ -3,7 +3,7 @@ import math
 import numpy as np
 
 def t_test(next_counts, popmean):
-    
+    next_counts = sorted(next_counts, reverse=True)
     sum_count = sum(next_counts)
     if sum_count == 0:
         return 0, 1
@@ -22,8 +22,9 @@ def t_test(next_counts, popmean):
     return t, p
 
 def t_test_byte(next_counts, popmean):
-    
     sum_count = sum([x for sub in next_counts for x in sub])
+    next_counts = sorted(next_counts, key=lambda x: sum(x), reverse=True)
+    
     if sum_count == 0:
         return 0, 1
         

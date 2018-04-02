@@ -50,7 +50,7 @@ def appLinkCorrelation(data, perlink_df, app_link_dict, cflow_dict,
                         key='', class_dict={}, imr_threshold=0.1,
                         k=5, topo_type='B4', links=[]
     ):
-    
+    k = 3
     if(perlink_df.shape[0] == 1):
         perlink_df.plot(x=perlink_df.index.values)
         return
@@ -88,7 +88,7 @@ def appLinkCorrelation(data, perlink_df, app_link_dict, cflow_dict,
     top_apps = list(df_entry.columns.values)
     app_link_table = []
     link_topk = 1
-    #print 'x', x
+    link_bottomk = 1
     for app in top_apps:
         #app = struct.pack('>I', app)[2:]
         tmp = []
@@ -102,7 +102,8 @@ def appLinkCorrelation(data, perlink_df, app_link_dict, cflow_dict,
                 tmp.append(0.1)
         print '\n'
         tmp = sorted(tmp)
-        app_link_table.append(tmp[0:link_topk]+tmp[len(links)-link_topk:])
+        print 'tmp', tmp
+        app_link_table.append(tmp[0:link_topk]+tmp[-link_bottomk:])
     app_link_table = np.transpose(np.array(app_link_table))
     app_df = pd.DataFrame(
         app_link_table, columns=['a' + str(x) for x in top_apps])
@@ -115,6 +116,8 @@ def appLinkCorrelation(data, perlink_df, app_link_dict, cflow_dict,
     appClassification(
         len(app_imrs), app_imrs[0][2], 
         key=key, imr_threshold=imr_threshold, class_dict=class_dict)
+    
+    inner_imr = app_imrs[0][2]
     print('    --df_entry', df_entry)
-    return app_imrs
+    return [x[2] for x in app_imrs]
 

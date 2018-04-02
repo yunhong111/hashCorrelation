@@ -34,7 +34,6 @@ def independentCluster(table, p_t):
             if max_p > p_t:
                 tmp += max_a
                 if max_ai != None:
-                    print max_a
                     apps.remove(apps[max_ai])
 
             apps_compliment.append(tmp)
@@ -46,11 +45,12 @@ def independentCluster(table, p_t):
 
     app_imrs = []
     for app in apps:
-        inner_max, inner_min, inner_p = 0, 0, 0
+        inner_max, inner_min, inner_mean, inner_p = 0, 0, 0, 0
         
         for a in app:
             inner_max += table[a].max()
             inner_min += table[a].min()
+            inner_mean += table[a].mean()
         inner_imr = float(inner_max-inner_min)/inner_max
         
         if len(app) > 1:
@@ -60,7 +60,6 @@ def independentCluster(table, p_t):
         else:
             inner_p = 1.0
         app_imrs.append((app, inner_p, inner_imr))
-    print app_imrs
     return app_imrs
 
 """d = {'a1': [1, 2, 5, 6], 'a2': [3, 4, 7, 8], 'a3': [1, 2, 5, 6], 'a4': [3, 4, 7, 8]}

@@ -23,9 +23,9 @@ def read_csv(file_name, file_type=0, topo_type='CLASSIFICATION', is_epsilon=Fals
         return pd.read_csv(file_name)
     else:
         print('here')
-        names=['#flows', 'epsilon', 'is_correlated', 'key', '#pres', 'o_f'] + ['a' + str(i) for i in range(ACAP)]
+        names=['#flows', 'iteration', 'time', 'epsilon', 'r_threshold', 'is_correlated', 'key', '#pres', 'o_f'] + ['a' + str(i) for i in range(ACAP)]
         if is_epsilon:
-            names=['#flows', 'epsilon', 'is_correlated', 'key'] + ['a' + str(i) for i in range(ACAP)]
+            names=['#flows',  'iteration', 'time', 'epsilon', 'r_threshold','is_correlated', 'key', '#pres', 'o_f'] + ['a' + str(i) for i in range(ACAP)]
         return pd.read_csv(file_name, skiprows=[0], names=names)
 
 def q1(x):
@@ -81,13 +81,14 @@ def rankingPair(infile_name, cherns, flow_seq, pair_seqs,
     
     d1 = OrderedDict({})
     pvaluess = OrderedDict({})
+    
     for key1 in d:
         d1[key1] = []
         pvaluess[key1] = []
         for key2 in d[key1]:
             d[key1][key2][0] /= d[key1][key2][1]
             d1[key1].append((d[key1][key2][0], key2))
-            
+            print pvalues_d[key].keys(), key2
             x = np.mean(pvalues_d[key][key2])
             q_25 = np.percentile(x-pvalues_d[key][key2], 0.25)
             q_75 = np.percentile(pvalues_d[key][key2]-x, 0.75)
@@ -107,8 +108,7 @@ def rankingPair(infile_name, cherns, flow_seq, pair_seqs,
             q_25s.append([x[1] for x in pvaluess[pair][:cut]])
             q_75s.append([x[2] for x in pvaluess[pair][:cut]])
             x = [x[1] for x in d1[pair][:cut]]
-            
-    
+
     return x
     
 
@@ -127,7 +127,13 @@ def rankingPlot(topo_types, task_types, trace_types, pair_seq=0):
             cut = 10
         
         infile_name1, infile_name2 = init_files(
-                                    trace_type, task_type, topo_type
+                                    trace_type, task_type, topo_type,
+                                    x_var = 'CHERNRANKINGPVALUEFLOWNUM'
+        )
+        
+        infile_name3, infile_name4 = init_files(
+                                    trace_type, task_type, topo_type,
+                                    x_var = 'TTESTRANKINGPVALUEFLOWNUM'
         )
 
         group_fields = ['#flows','is_correlated', 'key']
@@ -137,6 +143,11 @@ def rankingPlot(topo_types, task_types, trace_types, pair_seq=0):
             infile_name2, cherns, 0, [0, 1], 
             file_type=1, topo_type=topo_type, cut=cut, q_25s=q_25s, q_75s=q_75s
         )
+        
+        chern_x = rankingPair(
+            infile_name4, cherns, 0, [0, 1], 
+            file_type=1, topo_type=topo_type, cut=cut, q_25s=q_25s, q_75s=q_75s
+        )
     
     xlabel, ylabel = 'Rank', 'Average p-value'
 
@@ -144,13 +155,14 @@ def rankingPlot(topo_types, task_types, trace_types, pair_seq=0):
     if chern_x != None:
         xticks = chern_x
         
-    print chern_x, cherns
-    pl.plot(cherns, x=None, k=2, errors=[q_25s, q_75s], 
+    print chern_x, cherns, 
+    print 'q****', q_25s, q_75s
+    pl.plot(cherns, x=[], k=2, errors=[] , 
         xlabel=xlabel, ylabel=ylabel, 
         title=infile_name1.split('/outputs')[1].split('.csv')[0]+'pair-key'+str(pair_seq), 
-        xlog=False, ylog=True, acc_legend=['0-hop', '1-hop'], xticks=np.arange(1, cut+1),
-        figure_width=4.3307, figure_height=3.346, x_shift=0.06, y_shift=0.05
-    )
+        xlog=False, ylog=True, acc_legend=['0-hop-Chernoff', '1-hop-Chernoff', '0-hop-t-test', '1-hop-t-test'], xticks=np.arange(1, cut+1),
+        figure_width=4.3307, figure_height=3.346, x_shift=0.06, y_shift=0.05, legend_x=0.3
+    ) #[q_25s, q_75s] 
     
 if __name__ == "__main__":
     global ACAP

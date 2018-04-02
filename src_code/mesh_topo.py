@@ -15,8 +15,9 @@ import operator
 import topo as tp
 import json
 import os.path
-from collections import Counter
+from collections import Counter, OrderedDict
 import sys
+import time
 
 def set_correlation(r1, r2, polys):
     """
@@ -60,7 +61,7 @@ def routing(G, s, d, table):
         for i, node in enumerate(path):
             if i < len(path) - 1:
                 if node not in table:
-                    table[node] = {}
+                    table[node] = OrderedDict({})
                 if d not in table[node]:
                     table[node][d] = []
                 if path[i+1] not in table[node][d]:
@@ -71,7 +72,7 @@ def all_routing(G, switch_nodes, table_file_name):
     Build routing table for all the s,d pairs
     """
 
-    table = {}
+    table = OrderedDict({})
     for s in switch_nodes:
         for d in switch_nodes:
             if s != d:
@@ -87,9 +88,9 @@ def all_routing_tree(G, tors, table_file_name):
     Build routing table for all the s, d pairs from Tors to Tors
     """
     
-    table = {}
+    table = OrderedDict({})
     for s in G.nodes():
-        table[s] = {}
+        table[s] = OrderedDict({})
     for s in tors:
         for d in tors:
             if s != d:
@@ -104,9 +105,9 @@ def all_routing_tree_2(G, tors1, tors2, table_file_name):
     Build routing table for all the s, d pairs from Tors to Tors
     """
     
-    table = {}
+    table = OrderedDict({})
     for s in G.nodes():
-        table[s] = {}
+        table[s] = OrderedDict({})
     for s in tors1:
         for d in tors2:
             if s != d:
@@ -122,7 +123,7 @@ def all_routing_tree_2(G, tors1, tors2, table_file_name):
 
 # No marking packets
 def next_hop(cur_hop, pre_hop, s, d, hash_str, size,
-            table, seeds, polys, flow_paths, cflow_dict, app_link_dict, select_dict={}
+            table, seeds, polys, flow_paths, cflow_dict, app_link_dict, select_dict=OrderedDict({})
     ):
             
     if cur_hop == d:
@@ -157,9 +158,10 @@ def next_hop(cur_hop, pre_hop, s, d, hash_str, size,
 
 # No marking packets
 def next_hop_rand_mark(cur_hop, pre_hop, s, d, hash_str, size,
-            table, seeds, polys, flow_paths, 
-            cflow_dict, app_link_dict, app_link_flow_dict, select_dict={},
-            drop_id=0, r_threshold=0.0, black_hole='sh41', test_hop='', add_byte_dict = {}
+            table, seeds, polys, min_len, flow_paths, 
+            cflow_dict, app_link_dict, app_link_flow_dict, select_dict=OrderedDict({}),
+            drop_id=0, r_threshold=0.0, black_hole='sh41', test_hop='', 
+            add_byte_dict = OrderedDict({}), w_key=0.0
         ):
 
     if cur_hop == d:
@@ -169,7 +171,8 @@ def next_hop_rand_mark(cur_hop, pre_hop, s, d, hash_str, size,
         if marker == "1":
             append_path(hash_str, pre_hop, cur_hop, d, flow_paths, size=size)
             #select_dict[hash_str] = 1
-        return
+        
+        return min_len
     
     # Header = 4+4+2+2+1 bytes
     hash_str0 = hash_str
@@ -193,8 +196,14 @@ def next_hop_rand_mark(cur_hop, pre_hop, s, d, hash_str, size,
         ni = crc8(seeds[cur_hop], hash_str, polys[cur_hop])%n
         nhop = table[cur_hop][d][ni]
         
-        if cur_hop == test_hop:
-            select_dict[hash_str] = 1
+        if cur_hop in test_hop:
+            if cur_hop not in select_dict:
+                select_dict[cur_hop] = OrderedDict({})
+            
+            if hash_str not in select_dict[cur_hop]:
+                select_dict[cur_hop][hash_str] = 1
+                min_len = min([len(select_dict[x]) for x in test_hop if x in select_dict])
+            #print min_len
     
     
     # Drop some packets from a particular link
@@ -202,25 +211,34 @@ def next_hop_rand_mark(cur_hop, pre_hop, s, d, hash_str, size,
         r = random.random()
         if r < r_threshold:
             return"""
+    """if test_hop not in add_byte_dict:
+        add_byte_dict[test_hop] = 0.0
+    add_byte_dict[test_hop] += size   """   
+      
     # Randomly choosen a flow and add extra byte to it
-    if r_threshold > 0 and n > 1 and cur_hop == test_hop and nhop == table[cur_hop][d][0] and len(add_byte_dict) < 3:
+    if cur_hop in test_hop and cur_hop not in add_byte_dict:
+        add_byte_dict[cur_hop] = OrderedDict({})
+    if drop_id > 0 and n > 1 and cur_hop in test_hop and nhop == table[cur_hop][d][0] and len(add_byte_dict[cur_hop]) < 2:
+        w_key1 = str(flow_cap) + ',' + cur_hop + ',' + topo_type
+        w_key_size = w_key[w_key1]
         add_byte_dict[hash_str] = 1000*size
-        size = 2.0*1024**2
-        print 'haha'
+        size = (w_key_size)*r_threshold/(1-r_threshold*2)
+        #print 'haha', size
     
     if marker == "1":
         append_path(hash_str, pre_hop, cur_hop, d, flow_paths, size=size)
             
-    next_hop_rand_mark(
-        nhop, cur_hop, s, d, hash_str0, size, table, seeds, polys, 
+    min_len = next_hop_rand_mark(
+        nhop, cur_hop, s, d, hash_str0, size, table, seeds, polys, min_len, 
         flow_paths, cflow_dict, app_link_dict, app_link_flow_dict, select_dict,
         drop_id=drop_id, r_threshold=r_threshold, black_hole=black_hole,
-        test_hop=test_hop, add_byte_dict=add_byte_dict
+        test_hop=test_hop, add_byte_dict=add_byte_dict, w_key=w_key
     )
+    return min_len
 
 # Using hash set to get the paths of the flows
 def next_hop_hash_set(cur_hop, pre_hop, s, d, hash_str, 
-            table, seeds, polys, flow_paths, select_dict={}, test_hop = ''
+            table, seeds, polys, flow_paths, select_dict=OrderedDict({}), test_hop = ''
     ):
             
     select_range = 1 << 28        
@@ -399,9 +417,9 @@ def hashStr(data):
     return hash_str
     
 def send_packet(hash_str, size, s, d, count_dict, count_dict1, mark_dict, 
-        threshold, mark_group, seeds, polys, 
+        threshold, mark_group, seeds, polys, min_len, 
         flow_paths, cflow_dict, app_link_dict, app_link_flow_dict, switch_nodes, table, select_dict, drop_id=0, r_threshold=0.0, black_hole='sh41', test_hop='',
-        add_byte_dict={}):
+        add_byte_dict=OrderedDict({}), w_key=''):
                 
     """switch_id = mf.marknum(
             hash_str, count_dict, count_dict1, threshold, 
@@ -414,20 +432,21 @@ def send_packet(hash_str, size, s, d, count_dict, count_dict1, mark_dict,
     if hash_str not in mark_dict:
         mark_dict[hash_str] = 0
     mark_dict[hash_str] += 1
-    next_hop_rand_mark(
-        s, 'h1', s, d, hash_str, size, table, seeds, polys, 
+    min_len = next_hop_rand_mark(
+        s, 'h1', s, d, hash_str, size, table, seeds, polys, min_len, 
         flow_paths, cflow_dict, app_link_dict, app_link_flow_dict, select_dict,
         drop_id=drop_id, r_threshold=r_threshold, black_hole=black_hole, 
-        test_hop=test_hop, add_byte_dict=add_byte_dict
+        test_hop=test_hop, add_byte_dict=add_byte_dict, w_key=w_key
     )
+    return min_len
     
-def flow_routing(file_name, seeds, polys, flow_paths,
+def flow_routing(file_name, seeds, polys, min_len, flow_paths,
                 switch_nodes, table, flow_cap=1000, 
                 topo_type='B4', task_type='CLASSIFICATION', 
-                key='', class_dict={}, imr_threshold=0.1,
+                key='', class_dict=OrderedDict({}), imr_threshold=0.1,
                 k=3,
                 drop_id=0, r_threshold=0.0, black_hole='sh41', links=[], 
-                test_hop=''):
+                test_hop='', exc_time=0.0):
     mark_group = []
     #mark_group = mf.mark_group_dest(table)
 
@@ -435,17 +454,24 @@ def flow_routing(file_name, seeds, polys, flow_paths,
     start_time = 0;
     start_time0 = 0;
     is_update = True
-    flow_dict = {}
-    count_dict, threshold = {}, 100000
-    mark_dict = {}
-    count_dict1 = {}
-    select_dict = {}
-    cflow_dict = {}
-    app_link_dict = {}
-    app_link_flow_dict = {}
+    flow_dict = OrderedDict({})
+    count_dict, threshold = OrderedDict({}), 100000
+    mark_dict = OrderedDict({})
+    count_dict1 = OrderedDict({})
+    select_dict = OrderedDict({})
+    cflow_dict = OrderedDict({})
+    app_link_dict = OrderedDict({})
+    app_link_flow_dict = OrderedDict({})
     perlink_df = pd.DataFrame()
-    add_byte_dict={}
-    
+    add_byte_dict=OrderedDict({})
+    byte_dict_from_file = OrderedDict({})
+    with open(("../inputs/total_bytes"), 'a+') as f:
+        for line in f:
+            data = line.split(',')
+            key = ','.join(data[:-1])
+
+            byte_dict_from_file[key] = float(data[-1])
+
     with open((file_name), 'r') as f:
         for line in f:
             
@@ -459,7 +485,16 @@ def flow_routing(file_name, seeds, polys, flow_paths,
                     is_update = False
                 
                 if task_type != 'APPLICATION':
-                    if len(select_dict) >= flow_cap: #20000:
+                    #if len(select_dict) >= flow_cap: #20000:
+                    if min_len >= flow_cap:
+                        """with open(("../inputs/total_bytes"), 'a') as f:
+                            for key in add_byte_dict:
+                                w_key = str(flow_cap) + ',' + key + ',' + topo_type
+                                print w_key, byte_dict_from_file.keys()
+
+                                if w_key not in byte_dict_from_file:
+                                    f.write(w_key + ','  + str(add_byte_dict[key]) + '\n')
+                                    byte_dict_from_file[w_key] = add_byte_dict[key]"""
                         break
                     
                 if (float(data[0]) - start_time0) > 150:
@@ -471,6 +506,7 @@ def flow_routing(file_name, seeds, polys, flow_paths,
                 if task_type == 'APPLICATION':
                     if (float(data[0]) - start_time) > 1.0:
                     #if len(select_dict) >= flow_cap:
+                        start_time = time.time()
                         is_update = True
                         ap.appLinkCorrelation(
                             data, perlink_df, app_link_dict, cflow_dict, 
@@ -478,14 +514,17 @@ def flow_routing(file_name, seeds, polys, flow_paths,
                             k=k, 
                             topo_type=topo_type, links=links
                         )
+                        exc_time += time.time() - start_time
+                        return min_len
                         break
                         
-                if topo_type == 'JUPITER': #'JUPITER':
+                if topo_type == 'JUPITER1': #'JUPITER':
                     s, d = map_addr_tree_3(
                             data[2], data[3], switch_nodes
                             
                     ) #switch_nodes[:len(switch_nodes)/2],
                             #switch_nodes[len(switch_nodes)/2:]
+                    
                     if task_type == 'APPLICATION':
                         idx = int(data[7])
                         s, d = map_addr_tree_app(
@@ -502,17 +541,22 @@ def flow_routing(file_name, seeds, polys, flow_paths,
                 hash_str = hashStr(data)  
                 flow_dict[hash_str] = 1
                 data_size = float(data[1])
-                
+                    
                 while(data_size > 0):
                     count += 1
                     per_size = data_size
-                    send_packet(
+                    #w_key = str(flow_cap) + ',' + test_hop + ',' + topo_type
+                    #if w_key not in byte_dict_from_file:
+                        #byte_dict_from_file[w_key] = 0
+                    min_len = send_packet(
                         hash_str, min(data_size, per_size), s, d, 
                         count_dict, count_dict1, 
-                        mark_dict, threshold, mark_group, seeds, polys, 
+                        mark_dict, threshold, mark_group, seeds, polys, min_len, 
                         flow_paths, cflow_dict, app_link_dict, app_link_flow_dict, switch_nodes, table, 
                         select_dict, drop_id=drop_id, r_threshold=r_threshold,
-                        black_hole=black_hole, test_hop=test_hop, add_byte_dict=add_byte_dict
+                        black_hole=black_hole, test_hop=test_hop, 
+                        add_byte_dict=add_byte_dict,
+                        w_key=byte_dict_from_file
                     )
                     data_size -= per_size
                 
@@ -521,9 +565,12 @@ def flow_routing(file_name, seeds, polys, flow_paths,
                     '    -- time', (float(data[0]) - start_time0), 
                     'pkt count:', count, 'Flow num:', len(flow_dict)
                 )
-                break                
-    return len(select_dict)
-
+                break  
+    
+    
+            
+    return min_len
+    
 def write_list_file(data):
     """ Write to file
     """
@@ -541,11 +588,11 @@ def subFlows(flow_paths, test_node):
 
 def classification(cherns, chern_byte, d_min, p, s, sub_flows,
                     table, trues, ests, true_byte_dict, est_byte_dict,
-                    pairs, epsilon=0.001):
+                    pairs, epsilon=0.001, metric_type='CHERN'):
     
     cherns[s], chern_byte[s], ds, d_min[s], p[s], true_class = mdt.hash_biased(
-                s, sub_flows, table[s]
-        )
+                s, sub_flows, table[s], metric_type=metric_type
+    )
     if s in [r1, r2]:    
         key = '-'.join(sorted([r1, r2]))
         if key not in true_byte_dict: 
@@ -581,9 +628,11 @@ def single(r1, r2, pairs, est_pairs, switch_nodes,
             trues, ests, true_byte_dict, est_byte_dict, table, test_nodes, 
             flow_cap=1000, is_correlated=True, topo_type='B4',
             task_type="CLASSIFICATION", 
-            key='', class_dict={}, imr_threshold=0.1,
+            key='', class_dict=OrderedDict({}), imr_threshold=0.1,
             epsilon=0.001,
-            drop_id=0, r_threshold=0.0, black_hole='sh41', links=[]):
+            drop_id=0, r_threshold=0.0, black_hole='sh41', links=[],
+            metric_type='CHERN', exc_time=0.0, app_exc_time=0.0,
+            flow_paths={}):
     
     print '**** correlation pair', r1, r2 
     true_class = -1
@@ -600,40 +649,33 @@ def single(r1, r2, pairs, est_pairs, switch_nodes,
     eeeee
     """
 
-    cherns, chern_byte = {}, {}
-    d_min = {}
-    p = {}
+    cherns, chern_byte = OrderedDict({}), OrderedDict({})
+    d_min = OrderedDict({})
+    p = OrderedDict({})
     
     if task_type != 'APPLICATION':
         for s in test_nodes:
             print '    **** testing node', s
-            flow_paths = {}
-            select_len = flow_routing(
-                file_name, seeds, polys, flow_paths, switch_nodes, table, flow_cap,
-                topo_type, 
-                key=key, class_dict=class_dict, imr_threshold=imr_threshold,
-                task_type=task_type, 
-                drop_id=drop_id, r_threshold=r_threshold, black_hole=black_hole,
-                links=links, test_hop=s
-            )
-            #print [flow_paths[key].values() for key in flow_paths.keys()[0:1]]
-            flow_paths = ([(flow_paths[key], key[1], flow_paths[key].values()[-1]) 
+            
+            start_time = time.time()
+
+            flow_path_list = ([(flow_paths[key], key[1], flow_paths[key].values()[-1]) 
                             for key in flow_paths]
             )
-            print '**** Len(flow_paths)', len(flow_paths)
+            #print '**** Len(flow_paths)', len(flow_paths)
             #print flow_paths[0]
-            
-            sub_flows = subFlows(flow_paths, s)
+
+            sub_flows = subFlows(flow_path_list, s)
             if task_type == "CLASSIFICATION":
                 byte_true_class = classification(cherns, chern_byte, d_min, p, s, sub_flows,
                             table, trues, ests, true_byte_dict, est_byte_dict,
-                            pairs, epsilon)
+                            pairs, epsilon, metric_type=metric_type)
                 if true_class == -1:
                     true_class = byte_true_class
             # Correlation ranking
             if task_type == "RANKING":
                 ranking = locate_corr(s, sub_flows, table, epsilon)
-                print '    -- ranking', ranking
+                #print '    -- ranking', ranking
                 if len(ranking) != 0:
                     if (ranking[0][0] == r1 or ranking[0][0] == r2
                             or  (topo_type == 'JUPITER' 
@@ -648,15 +690,17 @@ def single(r1, r2, pairs, est_pairs, switch_nodes,
                         if ranking[0][1] < ests[key][0][1]:
                             ests[key] = ranking
                         est_pairs.append((r1, r2))
-                        
+            exc_time += time.time() - start_time
+
     if is_correlated:        
         reset_correlation(r2, polys, poly)
     
-    return trues, ests, select_len, est_pairs, true_class
+    return trues, ests, est_pairs, true_class,  exc_time, app_exc_time
 
-def locate_corr(s, flow_paths, table, threshould=0.01):
+def locate_corr(s, flow_paths, table, threshould=0.01, metric_type='CHERN'):
 
-    cherns = mdt.corr_group(s, flow_paths, table, threshould)
+    cherns = mdt.corr_group(
+        s, flow_paths, table, threshould, metric_type=metric_type)
     return cherns
 
 def testPairs(G, aggr_nodes, prefix1='2_0', prefix2='2_1', table=None):
@@ -723,7 +767,7 @@ def jupiteNetwork():
         json_data = open(table_file_name).read()
         table = json.loads(json_data)
     
-    seeds, polys = cf.get_seeds_table_jupiter(switch_nodes) #
+    seeds, polys = cf.get_seeds_table_jupiter(switch_nodes + ['e1']) #
     
     return G, tors, edges, table, seeds, polys, anodes
     
@@ -909,9 +953,28 @@ if __name__ == "__main__":
                 list(set([(x[2], x[3]) for x in links])), key=lambda x:x[0])[0:16]          
     
     pairs, est_pairs = [], []
-    trues, ests = {}, {}
-    true_byte_dict, est_byte_dict, true_class_dict = {}, {}, {}
-    class_dict = {}
+    trues, ests = OrderedDict({}), OrderedDict({})
+    true_byte_dict, est_byte_dict, true_class_dict = OrderedDict({}), OrderedDict({}), OrderedDict({})
+    class_dict = OrderedDict({})
+    exc_time, app_exc_time = 0.0, 0.0
+    min_len  = 1**10
+    test_hops = [x for y in test_pairs for x in y]
+    flow_paths = OrderedDict({})
+    
+    if is_correlated:
+        for (r1, r2) in test_pairs:
+            poly = set_correlation(r1, r2, polys)
+            true_class = 1
+        
+    min_len = flow_routing(
+        file_name, seeds, polys, min_len, flow_paths, tors, table, flow_cap,
+        topo_type, 
+        key='', class_dict=class_dict, imr_threshold=imr_threshold,
+        task_type=task_type, 
+        drop_id=drop_id, r_threshold=r_threshold, black_hole=None,
+        links=[], test_hop=test_hops, exc_time=0
+    )
+    
     for (r1, r2) in test_pairs:
         if task_type == 'APPLICATION':
             black_hole = [x for x in G[r2] if 'sh' in x][0]
@@ -924,7 +987,7 @@ if __name__ == "__main__":
 
         if r1 != r2:
             key = '-'.join(sorted([r1, r2]))
-            trues, ests, select_len, est_pairs, true_class_dict[key] = single(
+            trues, ests, est_pairs, true_class_dict[key], exc_time, app_exc_time = single(
                 r1, r2, pairs, est_pairs, tors, 
                 trues, ests, true_byte_dict, est_byte_dict, 
                 table, [r1, r2],
@@ -933,19 +996,22 @@ if __name__ == "__main__":
                 topo_type,
                 task_type=task_type,
                 key=key, class_dict=class_dict, imr_threshold=imr_threshold,
-                epsilon=0.01,
+                epsilon=0.005,
                 drop_id=drop_id, r_threshold=r_threshold,
                 black_hole=black_hole,
-                links=links
+                links=links,
+                metric_type=x_var,
+                exc_time=exc_time, app_exc_time=app_exc_time, flow_paths=flow_paths
             )
                 
     print(
-        'trues, ests, select_len, est_pairs', 
-        len(trues), len(ests), select_len, est_pairs
+        'trues, ests, select_len, est_pairs, exc_time, app_exc_time', 
+        len(trues), len(ests), min_len, est_pairs, exc_time, app_exc_time
     )
-    classification_alg(true_byte_dict, epsilon=0.01, epsilon_pb=epsilon)
-    
+    classification_alg(true_byte_dict, epsilon=0.005, epsilon_pb=epsilon)
+
     # Write to fsile
+    select_len = min_len
     file_name1, file_name2 = cf.init_files(trace_type=trace_type, 
                 task_type=task_type, topo_type=topo_type, 
                 x_var=x_var, p=0.01)
@@ -955,12 +1021,14 @@ if __name__ == "__main__":
     if task_type == "CLASSIFICATION":
         for key in true_byte_dict:
             true_class = is_correlated
-            if r_threshold <= 0:
+            if drop_id <= 0:
                 true_class  = -1
                 is_correlated = -1
             f2.write(
                     str(select_len) + ','
+                    + str(exc_time) + ','
                     + str(epsilon) + ','
+                    + str(r_threshold) + ','
                     + str(int(is_correlated)) + ','
                     + key + ','
                     + str(true_byte_dict[key][0]) + ',' 
@@ -971,7 +1039,7 @@ if __name__ == "__main__":
         
         f1.write(
             ','.join([str(x) for x in 
-            [select_len, epsilon, int(is_correlated), len([x for x in true_byte_dict.values() if x[2] == 1]), 
+            [select_len, epsilon, r_threshold, int(is_correlated), len([x for x in true_byte_dict.values() if x[2] == 1]), 
             len([x for x in true_byte_dict.values() if x[2] == 0]), 
             len(true_byte_dict)]]
             ) 
@@ -983,7 +1051,9 @@ if __name__ == "__main__":
         for key in ests:
             f2.write(
                     str(select_len) + ','
+                    + str(exc_time) + ','
                     + str(epsilon) + ','
+                    + str(r_threshold) + ','
                     + str(int(is_correlated)) + ','
                     + key + ','
                     + str(len(ests)) + ','
@@ -994,7 +1064,7 @@ if __name__ == "__main__":
  
         f1.write(
             ','.join([str(x) for x in 
-            [select_len, epsilon, int(is_correlated), 
+            [select_len, epsilon, r_threshold, int(is_correlated), 
             len(ests)]]
             ) 
             + '\n'
@@ -1008,6 +1078,7 @@ if __name__ == "__main__":
             true_class = 1 if is_correlated else 2 if r_threshold>0 else 0
             f2.write(
                     str(select_len) + ','
+                    + str(app_exc_time) + ','
                     + str(r_threshold) + ','
                     + str(imr_threshold) + ','
                     + str(int(is_correlated)) + ','

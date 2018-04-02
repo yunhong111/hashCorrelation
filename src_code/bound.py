@@ -26,7 +26,7 @@ def chernoff_fun(theta):
             ans = float('inf')
             
         e_proc *= (ans*alpha+1-alpha)
-    return comp1*e_proc    
+    return math.exp(-theta*x)*e_proc    
     
 def chernoff_min(HHes, o_f, ratio = 0.5):
     global flow_fractions, x, alpha

@@ -92,7 +92,7 @@ def dest_group_by_nhops(routing_table):
     return ds
     
 def hash_biased(r1, flow_paths, routing_table_r1, 
-                threshould=0.01
+                threshould=0.01, metric_type='CHERN'
         ):
     """
     routing_table is the table of r1
@@ -117,10 +117,8 @@ def hash_biased(r1, flow_paths, routing_table_r1,
                 if min_chern > chern_bound:
                     d_min = (key, ds[key], x)
                 min_chern = min(min_chern, chern_bound)
-                cut = int(max(1, 1*int(1*min(map(len, next_bytes)))))
 
-                next_bytes_sorted = [(x[-cut:]) for x in map(sorted, next_bytes)]
-                next_bytes = next_bytes_sorted
+                next_bytes_sorted = next_bytes
                 sum_next_bytes = map(sum, next_bytes_sorted)
                 
                 chern_byte = min_bound(next_bytes, flow_indicator=0)
@@ -130,29 +128,28 @@ def hash_biased(r1, flow_paths, routing_table_r1,
                 t_byte, p_byte = t_test_byte(next_bytes, 0.5)
                 p_byte_min = min(p_byte_min, p_byte)
                 
-                # Use p value
-                min_chern_byte = p_byte_min
-                
-                #if ((max(sum_next_bytes) - min(sum_next_bytes))/sum(sum_next_bytes) > 0.3):
                 if max([y for x in next_bytes_sorted for y in x[-3:]])/sum(sum_next_bytes) > 0.1: 
-                        #and min(next_counts) > 5):
-                #if p_byte < 0.1:
                     true_class = 0
-                
-                print 'true_class', cut, (max(sum_next_bytes) - min(sum_next_bytes))/max(sum_next_bytes), true_class, nhops, sum_next_bytes, next_counts, p_byte, chern_byte
-                
+
                 if p_min > p: # and max(next_counts) > 50:
                     p_min = p
                     d_min = (key, ds[key], x, next_counts)
                 
-                #if min_chern < threshould:
-                    #break
-                #print('        ^^nhops, next_counts', nhops, next_counts)
     
+    if 'TTEST' in metric_type:
+        min_chern = p_min
+        min_chern_byte = p_byte_min
+    
+    elif 'CHERNTT' in metric_type:
+        min_chern_byte = p_byte_min
+    
+    elif 'TTCHERN' in metric_type:
+        min_chern = p_min
+        
     return min_chern, min_chern_byte, [r1, ds], d_min, p_min, true_class
 
 def corr_detection(r1_pre, r1, flow_paths, 
-                    routing_table_pre, routing_table_r1
+                    routing_table_pre, routing_table_r1, metric_type='CHERN'
         ):
     
     d_pres = dest_group_by_nhops(routing_table_pre)
@@ -184,6 +181,11 @@ def corr_detection(r1_pre, r1, flow_paths,
                 
                 chern_byte = min_bound(next_bytes, flow_indicator=0)
                 min_chern_byte = min(min_chern_byte, chern_byte)
+    if 'TTEST' in metric_type:
+        min_chern = p_min
+        print 'TTEST HERE'
+    elif 'CHERNTT' in metric_type:
+        min_chern_byte = p_byte_min
                 
     """print(
         '        ^^min_chern, p, min_chern_byte', 
@@ -192,7 +194,7 @@ def corr_detection(r1_pre, r1, flow_paths,
     
     return min_chern, p_min, o_f
     
-def corr_group(r2, flow_paths, routing_table, threshould=0.01):
+def corr_group(r2, flow_paths, routing_table, threshould=0.01, metric_type='CHERN'):
     """
         input:
         list[str]: n*1
@@ -204,7 +206,8 @@ def corr_group(r2, flow_paths, routing_table, threshould=0.01):
     min_bounds = []
     for r1 in r1s:
         min_bound, p, o_f = corr_detection(
-                r1, r2, flow_paths, routing_table[r1], routing_table[r2]
+                r1, r2, flow_paths, routing_table[r1], routing_table[r2],
+                metric_type=metric_type
         )
         #if p != 0:
             #min_bound = min(min_bound, p)

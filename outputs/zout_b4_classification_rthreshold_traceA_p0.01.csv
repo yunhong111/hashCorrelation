@@ -1,0 +1,6 @@
+#flows,epsilon,is_correlated,#correlated_detect,#non-uniform_detect,#all_cases
+300,0.01,1,4,0,4
+300,0.01,0,1,0,4
+300,0.01,-1,0,0,4
+300,0.01,1,4,0,4
+300,0.01,0,0,0,4

@@ -10,7 +10,7 @@ def plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title',
             
     fig = plt.figure(figsize=(figure_width, figure_height))
     ax = plt.subplot(111)
-    types = ['o-', '^-.', '*--', 'd-', 'p-', '>-', '<-', '8-',
+    types = ['o-', '^-.', '*--', 'd-.', 'p:', '>:', '<-', '8-',
             's-', 'p-', '1-', '2-', '3-', '4-', 'h-']
     colors = ['b', 'r', 'g', 'm', 'c', 'k',  
                 '#1f77b4', '#aec7e8', '#ff7f0e', '#ffbb78', '#2ca02c',
@@ -25,7 +25,7 @@ def plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title',
     if k == 1:
         if len(x) == 0:
             x_values = np.arange(len(data))
-        plt.plot(x_values, data, 'o-', color='blue')
+        plt.plot(x_values, data, 'o-', color='blue', markersize=8)
         if len(errors) != 0:
             plt.errorbar(x_values, data, errors, linestyle='None',color="r")
     else:
@@ -34,8 +34,13 @@ def plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title',
                 x_values = np.arange(len(data[i]))
             else:
                 x_values = x
+            
+            if len(x) !=0 and isinstance(x[0], (list,)):
+                x_values = x[i]
+            print 'x_values, data[i]',x_values, data[i]
+                
             plt.plot(
-                x_values, data[i], types[i], color=colors[i], linewidth=1.5)
+                x_values, data[i], types[i], color=colors[i], linewidth=2.0, markersize=10)
             if len(errors) != 0:
                 plt.errorbar(
                     x_values, 
@@ -43,7 +48,7 @@ def plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title',
                     linestyle='None',
                     color=colors[i%16],
                     linewidth=1.5,
-                    capthick=2
+                    capthick=3
                 )
 
     plt.ylabel(ylabel)
@@ -76,7 +81,7 @@ def box_plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title'
             
     fig = plt.figure(figsize=(figure_width, 3.346*1.25))
     ax = plt.subplot(111)
-    types = ['o-', '^-.', '*--', 'd-', 'p-', '>-', '<-', '8-',
+    types = ['o-', '^-.', '*--', 'd-.', 'p:', '>:', '<-', '8-',
             's-', 'p-', '1-', '2-', '3-', '4-', 'h-']
     colors = ['b', 'r', 'g', 'm', 'c', 'k',  
                 '#1f77b4', '#aec7e8', '#ff7f0e', '#ffbb78', '#2ca02c',
@@ -89,15 +94,19 @@ def box_plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title'
         ax.set_xscale('log')
     
     bplots = []
+    colors = ['pink', 'lightblue', 'lightgreen']
     for i in range(len(data)):
         x_values = np.arange(len(data[i]))
         bplot1 = plt.boxplot(
             data[i], widths=0.3, patch_artist=True)
+        
+        for patch in bplot1['boxes']:
+            patch.set_facecolor(colors[i])
         bplots.append(bplot1)
-    colors = ['pink', 'lightblue', 'lightgreen']
-    for bplot in bplots:
+    
+    """for bplot in bplots:
         for patch in bplot['boxes']:
-            patch.set_facecolor(colors[0])
+            patch.set_facecolor(colors[0])"""
             
     plt.ylabel(ylabel)
     plt.xlabel(xlabel)
@@ -108,5 +117,5 @@ def box_plot(data, x=None, k=1, errors=[], xlabel='x', ylabel='y', title='title'
     plt.grid(True)
     box = ax.get_position()
     ax.set_position(
-        [box.x0+0.04, box.y0+0.15, box.width * 0.8, box.height*0.8])
+        [box.x0+0.04, box.y0+0.02, box.width, box.height])
     fig.savefig('../figures/' + title + 'boxplot.png', dpi = 300)

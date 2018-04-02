@@ -6,16 +6,21 @@ import plot_lib as pl
 from collections import OrderedDict
 import plotly.plotly as py
 import plotly.graph_objs as go
+import co_func as cf
 
 def init_files(trace_type = ' ', task_type='CLASSIFICATION', topo_type='b4', 
-                x_var = 'FLOWNUM'
+                x_var = 'FLOWNUM', p=0.01
     ):
-    file_name1 = ('../outputs/zout_'
+    """file_name1 = ('../outputs/zout_'
             +topo_type.lower()+'_'+ task_type.lower() + '_' 
             + x_var.lower() + '_trace'+trace_type+'.csv')
     file_name2 = ('../outputs/zout_'
             +topo_type.lower()+'_'+ task_type.lower() + '_' 
-            + x_var.lower() + '_chern_trace'+trace_type+'.csv')
+            + x_var.lower() + '_chern_trace'+trace_type+'.csv')"""
+    
+    file_name1, file_name2 = cf.init_files(trace_type=trace_type, 
+                task_type=task_type, topo_type=topo_type, 
+                x_var=x_var, p=p)
             
     return file_name1, file_name2    
         
@@ -26,9 +31,9 @@ def read_csv(file_name, file_type=0, topo_type='CLASSIFICATION', is_epsilon=Fals
         return pd.read_csv(file_name)
     else:
         print('here')
-        names=['#flows', 'epsilon', 'is_correlated', 'key', '#pres'] + ['a' + str(i) for i in range(ACAP)]
+        names=['#flows', 'time', 'epsilon', 'r_threshold', 'is_correlated', 'key', '#pres'] + ['a' + str(i) for i in range(ACAP)]
         if is_epsilon:
-            names=['#flows', 'epsilon', 'is_correlated', 'key'] + ['a' + str(i) for i in range(ACAP)]
+            names=['#flows', 'time', 'epsilon', 'r_threshold','is_correlated', 'key'] + ['a' + str(i) for i in range(ACAP)]
         return pd.read_csv(file_name, skiprows=[0], names=names)
 
 def q1(x):
@@ -38,14 +43,15 @@ def q2(x):
     return x.quantile(0.75)
     
 def retieveData(infile_name1, group_fields, agg_fields, 
-                accuracys, errors, div=False, 
-                task_type="CLASSIFICATION", file_type=0, q_75s=[], q_25s=[]
+                accuracys, errors, times, div=False, 
+                task_type="CLASSIFICATION", file_type=0, q_75s=[], q_25s=[], xss=[]
     ):
     
     df1 = read_csv(infile_name1, file_type)
     df1 = df1.replace([2, '2.0', 2.0, '2'], 1)
+    df1 = df1[df1['#flows'] > 10]
     flow_nums = df1['#flows'].unique()
-
+    
     if div == True:
         if task_type == "CLASSIFICATION":
             case_num = df1['#all_cases'].loc[0]
@@ -57,21 +63,31 @@ def retieveData(infile_name1, group_fields, agg_fields,
     agg_dict = OrderedDict({})
     for agg_field in agg_fields:
         agg_dict[agg_field] = ['mean', 'std', q1, q2, 'median']
-        
+       
+    """time_df = (df1
+            .groupby(group_fields)
+            .agg({'time':['mean']})
+    ) 
+    times.append(time_df['time']['mean'])
+    print 'times', times"""
+       
     df1 = (df1
             .groupby(group_fields)
             .agg(agg_dict)
     )
-        
+
     data = df1[agg_fields[0]]['mean'].divide(case_num)
     error = df1[agg_fields[1]]['std'].divide(case_num)
+    #time = df1[agg_fields[2]]['mean'].divide(case_num)
     quantile_25 = df1[agg_fields[1]]['q1'].divide(case_num)
     quantile_75 = df1[agg_fields[1]]['q2'].divide(case_num)
 
     accuracys.append(data)
     errors.append(error)
+    #times.append(time)
     q_75s.append([data-quantile_25, quantile_75-data])
     q_25s.append(quantile_25)
+    xss.append(list(flow_nums))
 
     #[x[0] for x in df1.index.values]
     return flow_nums, case_num
@@ -89,6 +105,22 @@ def ranking_num(row):
         print('ranking_num:num==0')
         eeeee
     return num
+
+def getTime(infile_name, times, group_fields=[], key_field='', file_type=0, topo_type='CLASSIFICATION', case_num=1, xss=[]):
+    df1 = read_csv(infile_name, file_type, topo_type=topo_type)
+    df1 = df1.sort(columns=['#flows'])
+    #df1 = df1[df1['#flows'] > 20]
+    #df1 = df1[df1['#flows'] < 80]
+    flow_nums = df1['#flows'].unique()
+    xss.append(list(flow_nums))
+    #df1 = df1[df1['#flows'] < 90]
+    time_df = (df1
+            .groupby(group_fields)
+            .agg({'time':['mean']})
+    ) 
+    times.append(list(time_df['time']['mean'].divide(case_num)))
+    print 'times++++++++++++', times
+    
     
 def rankingPair(infile_name, cherns, flow_seq, pair_seq, 
                 file_type=0, topo_type='CLASSIFICATION', cut=None
@@ -104,7 +136,7 @@ def rankingPair(infile_name, cherns, flow_seq, pair_seq,
     print df1
     for flow_num in df1['#flows'].unique():
         for key in df1['key'].unique():
-            print flow_num, key
+            print 'flow_num, key', flow_num, key
             if (str(flow_num)+key) not in d:
                 d[str(flow_num)+key] = {}
                 
@@ -134,34 +166,36 @@ def rankingPair(infile_name, cherns, flow_seq, pair_seq,
     else:
         cherns.append([x[0]for x in d1[pair][:cut]])
         x = [x[1] for x in d1[pair][:cut]]
+    xss.append(x)
     
     return x
     
 def accuracyPlot(topo_types, task_types, trace_types, pair_seq=0):
     
-    accuracys, errors, x = [], [], None
-    cherns, chern_errors, chern_x = [], [], None
+    accuracys, errors, times, x = [], [], [], None
+    cherns, chern_errors, time_chern, chern_x = [], [], [], None
     
     for trace_type in trace_types:
         topo_type = topo_types[0]
         task_type = task_types[1]
         
         infile_name1, infile_name2 = init_files(
-                                    trace_type, task_type, topo_type
+                                    trace_type, task_type, topo_type, 
+                                    x_var='TTESTFLOWNUM', p=0.01
         )
         group_fields = ['#flows','is_correlated']
         agg_fields = ['#correlated_detect', '#non-uniform_detect']
         x, case_num = retieveData(
                 infile_name1, group_fields, agg_fields, 
-                accuracys, errors, div=True
+                accuracys, errors, times, div=True
         )
         print x, case_num
         
         group_fields = ['#flows','is_correlated', 'key']
-        agg_fields = ['count_chern', 'byte_chern']
+        agg_fields = ['count_chern', 'byte_chern', 'time']
         chern_x = retieveData(
                 infile_name2, group_fields, agg_fields, 
-                cherns, chern_errors, div=False
+                cherns, chern_errors, time_chern, div=False
         )
     
     acc_legend = ['Database', 'Web', 'Hadoop', 'e1', 'e5', 'e10', 'e50', 'e100']
@@ -193,10 +227,11 @@ def accuracyPlot(topo_types, task_types, trace_types, pair_seq=0):
 def rankingPlot(topo_types, task_types, trace_types, pair_seq=0):
     global ACAP
     
-    accuracys, errors, x, q_75s, q_25s = [], [], None, [], []
-    cherns, chern_errors, chern_x = [], [], None
-    
-    for topo_type in topo_types:
+    accuracys, errors, x, q_75s, q_25s, times = [], [], None, [], [], []
+    cherns, chern_errors, chern_x, time_chern = [], [], None, []
+    xss = []
+    xss1 = []
+    for topo_type in topo_types[0:3]:
         trace_type = trace_types[0]
         task_type = task_types[1]
         cut = 5
@@ -204,45 +239,76 @@ def rankingPlot(topo_types, task_types, trace_types, pair_seq=0):
             ACAP = 256
             cut = 10
         
+        if topo_type == topo_types[0]:
+            pair_num = 4
+        elif topo_type == topo_types[1]:
+            pair_num = 8
+        elif topo_type == topo_types[2]:
+            pair_num = 14
+        
+        
         infile_name1, infile_name2 = init_files(
-                                    trace_type, task_type, topo_type
+                                        trace_type, task_type, topo_type,
+                                        x_var='CHERNFLOWNUM', p=0.01
         )
+        
+        infile_name3, infile_name4 = init_files(
+                                    trace_type, task_type, topo_type,
+                                    x_var='TTESTFLOWNUM', p=0.01
+        )
+        key_field = '#flows'
         group_fields = ['#flows','is_correlated']
         agg_fields = ['#correlated_detect', '#correlated_detect']
         x, case_num = retieveData(
                 infile_name1, group_fields, agg_fields, 
-                accuracys, errors, div=True, task_type='RANKING',
-                q_75s=q_75s, q_25s=q_25s
+                accuracys, errors, times, div=True, task_type='RANKING',
+                q_75s=q_75s, q_25s=q_25s, xss=xss
         )
+        x, case_num = retieveData(
+                infile_name3, group_fields, agg_fields, 
+                accuracys, errors, time_chern, div=True, task_type='RANKING',
+                q_75s=q_75s, q_25s=q_25s, xss=xss
+        )
+        getTime(infile_name2, times, group_fields=group_fields, key_field=key_field, file_type=1, topo_type=topo_type, case_num=pair_num, xss=xss1)
+        getTime(infile_name4, times, group_fields=group_fields, key_field=key_field, file_type=1, topo_type=topo_type, case_num=pair_num, xss=xss1)
+
         print(len(x))
         group_fields = ['#flows','is_correlated', 'key']
         agg_fields = ['a'+str(i) for i in range(ACAP)]
         #print(agg_fields)
-        chern_x = rankingPair(
+        """chern_x = rankingPair(
             infile_name2, cherns, 2, pair_seq, 
             file_type=1, topo_type=topo_type, cut=cut
-        )
+        )"""
     
-    acc_legend = ['B4', 'Fat-tree', 'Jupiter', 'e1', 'e5', 'e10', 'e50', 'e100']
+    acc_legend = ['B4-Chernoff', 'B4-t-test', 'Tree-Chernoff', 'Tree-t-test',  'Jupiter-Chernoff', 'Jupiter-t-test', 'e1', 'e5', 'e10', 'e50', 'e100']
     xlabel, ylabel = 'The number of flows', 'Average accuracy'
-    pl.plot(accuracys, x=x, k=2, errors=q_75s, 
+    pl.plot(accuracys, x=xss, k=2, errors=[], 
         xlabel=xlabel, ylabel=ylabel, 
-        title=infile_name1.split('/outputs')[1].split('.csv')[0], 
-        xlog=False, ylog=False, acc_legend=acc_legend[:3]
+        title=infile_name1.split('/outputs')[1].split('.csv')[0].replace('.', '_'), 
+        xlog=False, ylog=False, acc_legend=acc_legend[:len(accuracys)], legend_x=0.45
     )
-    
+    x = [20, 30, 40, 50, 60, 70]
+    xss = [x]*len(times)
+    print times, len(times[0])
+    pl.plot(times, x=xss1, k=2, errors=[], 
+        xlabel=xlabel, ylabel='Execution time (seconds)', title=infile_name1.split('/outputs')[1].split('.csv')[0].replace('.', '_')+'_time', 
+        xlog=False, ylog=False, acc_legend=acc_legend,
+        legend_y=0.85, legend_x = 0.0
+    )
     
     xlabel, ylabel = 'Previous hop', 'Average p-value'
     print chern_x
     xticks = []
     if chern_x != None:
         xticks = chern_x
-    pl.plot(cherns, x=None, k=len(cherns), errors=[], 
+        
+    """pl.plot(cherns, x=[], k=len(cherns), errors=[], 
         xlabel=xlabel, ylabel=ylabel, 
         title=infile_name1.split('/outputs')[1].split('.csv')[0]+'pair-key'+str(pair_seq), 
         xlog=False, ylog=True, acc_legend=acc_legend, xticks=chern_x,
         figure_width=4.3307*1.25
-    )
+    )"""
     
 if __name__ == "__main__":
     global ACAP

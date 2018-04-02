@@ -49,33 +49,31 @@ def min_bound(next_counts, flow_indicator=1):
     if flow_indicator == 1:
         sum_HHes = np.float64(((sum(next_counts))))
     else:
-        sum_HHes = np.float64(sum([x for sub in next_counts for x in sub]))
+        next_counts_cut = [[1]*len(x) for x in next_counts]
+        sum_HHes = np.float64(sum([x for sub in next_counts_cut for x in sub]))
         
     for i in range(n):
         if flow_indicator == 1:
             o_fi = float((next_counts[i]))/sum_HHes
         else:
-            o_fi = float(sum(next_counts[i]))/sum_HHes
-            """print(
-                '        %%next_bytes, o_fi', 
-                [sum(sub) for sub in next_counts], 
-                o_fi
-            )"""
+            o_fi = float(sum(next_counts[i]))/np.float64(sum([x for sub in next_counts for x in sub]))
+
+            next_counts = [[1]*len(x) for x in next_counts]
+
         ratio = 1.0/len(next_counts)
-        """print(
-                '        %%next_counts, o_fi, ratio', next_counts, o_fi, ratio
-        )"""
-        if o_fi <= ratio:
+
+        if o_fi <= 1:#ratio:
             if flow_indicator == 1:
-                flow_fractions = [float(1.0)/sum_HHes]*sum_HHes
+                flow_fractions = [float(1.0)/sum_HHes]*int(sum_HHes)
             else:
                 flow_fractions = ([x/sum_HHes for sub in next_counts 
                                                 for x in sub]
                 )
-                
+             
             theta, chern_bound = bd.chernoff_min(
                     flow_fractions, o_fi, ratio=ratio
             )
+                 
             if chern_bound < min_bound:
                 min_bound = chern_bound
                 min_pos = i
@@ -203,7 +201,7 @@ def get_seeds_table_jupiter(router_nodes):
     seeds = {}
     polys = {}
     i = 0
-    d = {'tor': 0x31, 'al': 0x2f, 'ah': 0x39, 'sl': 0xd5, 'sh': 0x4d}
+    d = {'tor': 0x31, 'al': 0x2f, 'ah': 0x39, 'sl': 0xd5, 'sh': 0x4d, 'e': 0x8d}
     for node in router_nodes:
         seeds[node] = crc32(node)%256
 

@@ -20,7 +20,7 @@ def read_csv(file_name, file_type=0, topo_type='CLASSIFICATION', is_epsilon=Fals
     global ACAP
 
     if file_type == 0:
-        names=(['#flows', 'epsilon', 'is_correlated', 
+        names=(['#flows', 'epsilon', 'r_threshold', 'is_correlated', 
                 'key', 'count_chern', 'byte_chern', 'class']
         )
         return pd.read_csv(file_name)
@@ -28,24 +28,33 @@ def read_csv(file_name, file_type=0, topo_type='CLASSIFICATION', is_epsilon=Fals
         print('here')
         names=['#flows', 'is_correlated', 'key'] + ['a' + str(i) for i in range(ACAP)]
         if is_epsilon:
-            names=['#flows', 'epsilon', 'is_correlated', 'key'] + ['a' + str(i) for i in range(ACAP)]
+            names=['#flows', 'time','epsilon', 'r_threshold', 'is_correlated', 'key'] + ['a' + str(i) for i in range(ACAP)]
         return pd.read_csv(file_name, skiprows=[0], names=names)
 
 def retieveData(infile_name1, group_fields, agg_fields, 
                 accuracys, errors, div=False, 
                 task_type="CLASSIFICATION", file_type=0, 
-                iteration=10, pair_num=4, key_field='epsilon', q_75ss=[]
+                iteration=10, pair_num=4, key_field='epsilon', q_75ss=[], topo_type='',
+                xss=[]
     ):
     print infile_name1
+    
     df1 = read_csv(infile_name1, file_type)
     df1 = df1.replace([2, '2.0', 2.0, '2'], 1)
-    df1.loc[df1['is_correlated']==1, 'true'] = 1
+
     #print df1
     #df1['true'] = df1['is_correlated'].replace([0], -1)
     df1['colFromIndex'] = df1.index
-    df1 = df1.sort(columns=[key_field, 'colFromIndex'])
+    df1 = df1.sort(columns=[key_field, 'iteration', 'colFromIndex'])
+    
     df1_part1 = df1[df1['is_correlated'] == 0]
     df1_part2 = df1[df1['is_correlated'] == 1]
+    df1 = df1[df1['epsilon'] != 0.0005]
+    df1 = df1[df1['epsilon'] != 0.005]
+    df1 = df1[df1['epsilon'] != 0.05]
+    #df1 = df1[df1['is_correlated'] != 1]
+    #df1 = df1[df1['r_threshold'] != 0.00]
+    
     print df1_part1
     print df1.groupby([key_field]).count()
 
@@ -61,20 +70,20 @@ def retieveData(infile_name1, group_fields, agg_fields,
         e_index = (i+1)*group_num*3 - 1
         print 'index', s_index, e_index, len(df1), group_num, iteration*pvalue_num
 
-        #if e_index <= len(df1)+1:
-        if df1[key_field].loc[s_index] != df1[key_field].loc[e_index]:
-            print df1.loc[s_index], df1.loc[e_index]
-            eeee
-        key = df1[key_field].loc[e_index]
+        if e_index <= len(df1)+1:
+            if df1[key_field].loc[s_index] != df1[key_field].loc[e_index]:
+                print df1.loc[s_index], df1.loc[e_index]
+                eeee
+            key = df1[key_field].loc[e_index]
 
-        y_pred = df1['pred'].loc[s_index:e_index]
-        #y_pred = y_pred.append(df1_part2['pred'].loc[s_index:e_index])
-        y_true = df1['true'].loc[s_index:e_index]
-        #y_true = y_true.append(df1_part2['true'].loc[s_index:e_index])
-        acc = accuracy_score(y_true, y_pred)
-        if key not in acc_dict:
-            acc_dict[key] = []
-        acc_dict[key].append(acc)
+            y_pred = df1['pred'].loc[s_index:e_index+1]
+            #y_pred = y_pred.append(df1_part2['pred'].loc[s_index:e_index])
+            y_true = df1['true'].loc[s_index:e_index+1]
+            #y_true = y_true.append(df1_part2['true'].loc[s_index:e_index])
+            acc = accuracy_score(y_true, y_pred)
+            if key not in acc_dict:
+                acc_dict[key] = []
+            acc_dict[key].append(acc)
 
     print len(acc_dict)
 
@@ -84,7 +93,10 @@ def retieveData(infile_name1, group_fields, agg_fields,
     q_75s = []
     for key in acc_dict:
         df = pd.DataFrame(acc_dict[key], columns=['key'])
+        
         x= df['key'].mean()
+        #if topo_type == 'B4':
+            #x= df['key'].mean()
         accuracy.append(x)
         q_25 = df['key'].quantile(0.25)
         q_75 = df['key'].quantile(0.75)
@@ -95,6 +107,10 @@ def retieveData(infile_name1, group_fields, agg_fields,
     accuracys.append(accuracy)
     errors.append(error)
     q_75ss.append([q_25s, q_75s])
+    if topo_type == 'JUPITER':
+        xss.append([x*1 for x in list(df1[key_field].unique())])
+    else:
+        xss.append(list(df1[key_field].unique()))
     
     return df1[key_field].unique(), pvalue_num, acc_dict
     
@@ -103,9 +119,9 @@ def accuracyPlot(topo_types, task_types, trace_types, pair_seq=0):
     accuracys, errors, x = [], [], None
     cherns, chern_errors, chern_x = [], [], None
     acc_boxplot_data = []
-    q_75ss = []
+    q_75ss, xss = [], []
     
-    for topo_type in topo_types[0:2]:
+    for topo_type in topo_types[0:3]:
         trace_type = trace_types[0]
         task_type = task_types[0]
         if topo_type == topo_types[0]:
@@ -117,24 +133,36 @@ def accuracyPlot(topo_types, task_types, trace_types, pair_seq=0):
         
         infile_name1, infile_name2 = init_files(
                                     trace_type, task_type, topo_type,
-                                    x_var = 'PVALUEBYTE'
+                                    x_var = 'CHERNPVALUEBYTE' #CHERNPVALUE
         )
         
-        group_fields = ['epsilon','is_correlated', 'key']
+        infile_name3, infile_name4 = init_files(
+                                    trace_type, task_type, topo_type,
+                                    x_var = 'TTESTPVALUEBYTE'
+        )
+        key_field = 'epsilon'
+        group_fields = [key_field,'is_correlated', 'key']
         agg_fields = ['count_chern', 'byte_chern']
         chern_x, case_num, acc_dict = retieveData(
                 infile_name2, group_fields, agg_fields, 
-                accuracys, errors, div=False, pair_num=pair_num, q_75ss=q_75ss
+                accuracys, errors, div=False, pair_num=pair_num, q_75ss=q_75ss,
+                key_field=key_field, topo_type=topo_type, xss=xss
+        )
+        chern_x, case_num, acc_dict = retieveData(
+                infile_name4, group_fields, agg_fields, 
+                accuracys, errors, div=False, pair_num=pair_num, q_75ss=q_75ss,
+                key_field=key_field, topo_type=topo_type, xss=xss
         )
         acc_boxplot_data.append(acc_dict.values())
     
-    acc_legend = ['Database', 'Web', 'Hadoop']
-    xlabel, ylabel = '$P_b$', 'Average accuracy'
+    acc_legend = ['B4-Chernoff', 'B4-t-test','Tree-Chernoff', 'Tree-t-test', 'Jupiter-Chernoff', 'Jupiter-t-test']
+    xlabel, ylabel = '$P_b$', 'Average accuracy' #'Relative elephant flow size'
     print 'accuracys, chern_x', len(accuracys[0]), len(chern_x)
-    pl.plot(accuracys, x=chern_x, k=2, errors=q_75ss, 
+    print accuracys, xss
+    pl.plot(accuracys, x=xss, k=2, errors=[], 
         xlabel=xlabel, ylabel=ylabel, title=infile_name1.split('/outputs')[1].split('.csv')[0].replace('.', '_'), 
-        xlog=True, ylog=False, acc_legend=acc_legend, legend_x=0.2,
-        legend_y=0.2
+        xlog=True, ylog=False, acc_legend=acc_legend, legend_x=0.0,
+        legend_y=0.3
     )
     print acc_boxplot_data
     
